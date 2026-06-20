@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bilingual Pictionary — Free English/Spanish Drawing Game</title>
+<meta name="description" content="Free bilingual Pictionary game for English and Spanish-speaking families. Single-device pass-and-play, words shown in both languages at once, configurable teams and difficulty.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tonatihuai2026.github.io/bilingual-pictionary-game/">
+<meta property="og:title" content="Bilingual Pictionary — Free English/Spanish Drawing Game">
+<meta property="og:description" content="Free bilingual Pictionary game for mixed English/Spanish-speaking families. No account, no app store, runs in your browser.">
+<meta name="twitter:card" content="summary">
+<meta name="google-adsense-account" content="ca-pub-8781477226668093">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8781477226668093" crossorigin="anonymous"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Bilingual Pictionary",
+  "url": "https://tonatihuai2026.github.io/bilingual-pictionary-game/",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Any (runs in browser)",
+  "description": "Free bilingual Pictionary game for English and Spanish-speaking families. Single-device pass-and-play, words shown in both languages at once.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <h1>Bilingual Pictionary</h1>
+  <p>Free drawing-and-guessing game for English &amp; Spanish-speaking families &mdash; one device, pass and play.</p>
+</header>
+<main>
+  <section id="setup">
+    <h2>Game Setup</h2>
+    <div class="setup-row">
+      <label for="teamCount">Number of teams:</label>
+      <select id="teamCount">
+        <option value="2" selected>2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+    </div>
+    <div id="teamNames" class="team-names"></div>
+    <div class="setup-row">
+      <label for="tier">Word difficulty (age range):</label>
+      <select id="tier">
+        <option value="kids">Kids (simple &amp; concrete)</option>
+        <option value="family" selected>Family (mixed)</option>
+        <option value="adults">Adults (harder, abstract)</option>
+        <option value="any">Everyone (mix of all)</option>
+      </select>
+    </div>
+    <div class="setup-row">
+      <label for="timerSeconds">Timer per turn:</label>
+      <select id="timerSeconds">
+        <option value="30">30 seconds</option>
+        <option value="60" selected>60 seconds</option>
+        <option value="90">90 seconds</option>
+        <option value="120">2 minutes</option>
+      </select>
+    </div>
+    <button id="startGame">Start Game</button>
+    <p class="hint">You'll need a pencil and paper (or a whiteboard) to draw &mdash; this app handles word selection, the dice challenge, scoring, and the timer.</p>
+  </section>
+
+  <section id="game" style="display:none;">
+    <div class="turn-banner">
+      <span id="currentTeam"></span>'s turn &mdash; Round <span id="roundNumber"></span>
+    </div>
+
+    <div class="word-card">
+      <div class="word-row">
+        <span class="lang-label">EN</span>
+        <span id="wordEn" class="word">???</span>
+      </div>
+      <div class="word-row">
+        <span class="lang-label">ES</span>
+        <span id="wordEs" class="word">???</span>
+      </div>
+      <button id="revealWord">Reveal Word (drawer only!)</button>
+    </div>
+
+    <div class="dice-card">
+      <h3>Dice Challenge</h3>
+      <div id="diceFace" class="dice-face">-</div>
+      <button id="rollDice">Roll Dice</button>
+    </div>
+
+    <div class="timer-card">
+      <h3>Timer</h3>
+      <div id="timerDisplay" class="timer-display">01:00</div>
+      <button id="startTimer">Start Timer</button>
+    </div>
+
+    <div class="round-controls">
+      <button id="markCorrect">Correct! (+1 point)</button>
+      <button class="secondary" id="skipWord">Skip / No points</button>
+    </div>
+
+    <h3>Scores</h3>
+    <div id="scores" class="scores"></div>
+
+    <button class="secondary" id="endGame">End Game / New Setup</button>
+  </section>
+
+  <section class="rules">
+    <h2>How to Play</h2>
+    <ol>
+      <li>Set up your teams (2-4), pick a difficulty level, and a timer length.</li>
+      <li>Only the current drawer looks at the word (in English and Spanish at once) and draws it on paper or a whiteboard &mdash; no talking, no writing letters/numbers.</li>
+      <li>Roll the dice for a random twist on the round (e.g. draw with your eyes closed, no sounds at all, double points).</li>
+      <li>Start the timer. Teammates guess out loud in either language.</li>
+      <li>Mark "Correct" to score a point and move to the next team, or "Skip" if time runs out.</li>
+    </ol>
+    <p>This version is single-device, pass-and-play &mdash; everyone gathers around one phone, tablet, or laptop. Online multiplayer with live drawing is planned for a future version.</p>
+  </section>
+</main>
+<script src="words.js"></script>
+<script src="pictionary.js"></script>
+</body>
+</html>
