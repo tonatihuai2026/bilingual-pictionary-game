@@ -188,6 +188,20 @@ header { position: relative; }
 @keyframes pop { 0% { transform: scale(.85); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 
 /* ---- board ---- */
+/* The 5 random categories chosen for this game (Board view) */
+.active-cats {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .4rem;
+  margin: .25rem 0 1rem;
+}
+.active-cats:empty { display: none; }
+.active-cats-label { font-size: .8rem; font-weight: 600; color: var(--teal-dark); margin-right: .15rem; }
+.cat-chip {
+  display: inline-block; font-size: .8rem; font-weight: 600;
+  color: var(--teal-dark); background: color-mix(in srgb, var(--teal) 12%, #fff);
+  border: 1px solid color-mix(in srgb, var(--teal) 30%, transparent);
+  border-radius: 999px; padding: .2rem .65rem;
+}
+
 .board {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

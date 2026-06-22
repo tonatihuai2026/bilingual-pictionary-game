@@ -48,13 +48,14 @@
     </div>
     <div id="teamNames" class="team-names"></div>
     <div class="setup-row">
-      <label for="complexity">Complexity &middot; <span lang="es">Dificultad</span>:</label>
-      <select id="complexity">
-        <option value="easy">Easy &middot; Fácil (animals, food, objects)</option>
-        <option value="medium" selected>Medium &middot; Media (+ actions, places)</option>
-        <option value="hard">Hard &middot; Difícil (+ abstract, idioms)</option>
+      <label for="mode">Mode &middot; <span lang="es">Modo</span>:</label>
+      <select id="mode">
+        <option value="kids">Kids &middot; Niños (simple, easy to draw)</option>
+        <option value="family" selected>Family &middot; Familia (everyday + culture)</option>
+        <option value="advanced">Advanced &middot; Avanzado (abstract, idioms)</option>
       </select>
     </div>
+    <p class="hint">Each game picks <strong>5 random categories</strong> from your chosen mode. &middot; <span lang="es">Cada partida elige 5 categorías al azar.</span></p>
     <div class="setup-row">
       <label for="timerSeconds">Timer per round &middot; <span lang="es">Tiempo</span>:</label>
       <select id="timerSeconds">
@@ -100,6 +101,7 @@
     <div class="phase-view" id="phaseBoard" data-phase="board" role="tabpanel" hidden>
       <h2 class="phase-heading">Board &middot; <span lang="es">Tablero</span></h2>
       <p class="hint">Track each team's token. The active phase auto-follows the game flow &mdash; tap a tab anytime to look around.</p>
+      <div id="activeCategories" class="active-cats" aria-label="Active categories this game"></div>
       <div id="board" class="board" aria-label="Game board"></div>
 
       <!-- Round resolution on the Board: roll the dice, move the winning token -->
@@ -170,7 +172,7 @@
   <section class="rules">
     <h2>How to Play &middot; <span lang="es">Cómo jugar</span></h2>
     <ol>
-      <li>Set up 2&ndash;4 teams and pick a complexity level (it controls the tile categories).</li>
+      <li>Set up 2&ndash;4 teams and pick a mode (Kids, Family, or Advanced). Each game draws words from 5 random categories of that mode.</li>
       <li>Each round shows one word in <strong>English and Spanish at once</strong>. Every team draws and guesses at the same time &mdash; it's all-play.</li>
       <li>Start the timer. When a team guesses correctly (in either language), tap that team's button.</li>
       <li>That team rolls the die and their token advances across the board.</li>

@@ -5,39 +5,29 @@
   "use strict";
 
   var Rng = window.GameRng, Core = window.GameCore, Turn = window.GameTurn;
+  var MODES = window.WORD_MODES || {};
   var BANK = window.WORD_BANK || [];
 
   // ---- config -------------------------------------------------------------
   var BOARD_SIZE = 16;               // start + 14 all-play tiles + finish
-  var COMPLEXITY_TO_TIER = {         // map board complexity -> word-bank tier
-    easy: "kids", medium: "family", hard: "adults"
-  };
 
-  // Lightweight keyword map so a tile's category can pick a thematically-matching
-  // word "when possible". This is metadata ABOUT existing words, not a new word
-  // bank — words.js stays the single source of word data.
-  var CATEGORY_KEYWORDS = {
-    animals: ["dog", "cat", "fish", "bird", "cow", "pig", "duck", "frog", "dinosaur"],
-    food: ["apple", "banana", "cake", "egg", "pizza", "ice cream"],
-    objects: ["ball", "hat", "shoe", "book", "chair", "table", "door", "window",
-              "bicycle", "umbrella", "guitar", "camera", "backpack", "skateboard", "robot"],
-    actions: ["snorkeling", "swimming", "negotiation", "job interview", "time travel"],
-    places: ["house", "swimming pool", "volcano", "lighthouse", "waterfall", "castle",
-             "stock market", "soccer goal"],
-    abstract: ["procrastination", "jealousy", "nostalgia", "inflation", "democracy",
-               "sarcasm", "retirement", "bureaucracy", "compound interest",
-               "artificial intelligence"],
-    idioms: ["writer's block", "midlife crisis", "conspiracy theory",
-             "long-distance relationship", "deja vu", "mortgage", "midlife"]
+  // Difficulty mode -> board complexity (the FROZEN lib only knows easy/medium/hard,
+  // which it uses to tag board tiles). Mode drives which word categories we draw from.
+  var MODE_TO_COMPLEXITY = {
+    kids: "easy", family: "medium", advanced: "hard"
   };
+  var CATEGORIES_PER_GAME = 5;       // pick 5 random categories per game (item 11)
 
   // ---- state --------------------------------------------------------------
   var state = null;        // GameTurn state {board, teams, winner}
   var rng = null;          // seeded rng function
   var seed = 0;
   var complexity = "medium";
+  var mode = "family";     // chosen difficulty mode: "kids" | "family" | "advanced"
+  var activeCategories = []; // the 5 category KEYS drawn at random for this game
   var round = 1;
   var currentWord = null;
+  var currentWordCat = null; // label of the category the current word came from
   var currentTile = null;
   var resolvedThisRound = false;
   var phase = "word";      // current phase view: "board" | "word" | "timer"
@@ -98,24 +88,80 @@
   // ---- helpers ------------------------------------------------------------
   function $(id) { return document.getElementById(id); }
 
-  function pickWord(tier, category) {
-    var pool = BANK.filter(function (w) { return tier === "any" || w.tier === tier; });
-    if (!pool.length) pool = BANK.slice();
-    // Try to match the active tile's category.
-    var keys = CATEGORY_KEYWORDS[category] || [];
-    var matches = pool.filter(function (w) {
-      var en = w.en.toLowerCase();
-      return keys.some(function (k) { return en.indexOf(k) !== -1; });
-    });
-    var chosen = matches.length ? matches : pool;
-    // Bug 10: "Next word" kept showing the SAME word. Avoid an immediate repeat by
-    // re-drawing when the pick matches the previous word (only if alternatives exist).
-    var word = chosen[Math.floor(rng() * chosen.length)];
-    if (chosen.length > 1 && currentWord && word.en === currentWord.en) {
-      var others = chosen.filter(function (w) { return w.en !== currentWord.en; });
+  // Pick the game's 5 random categories from the chosen mode using the seedable
+  // RNG (so a given seed reproduces the same set). Returns an array of category keys.
+  function pickGameCategories(modeKey) {
+    var modeObj = MODES[modeKey];
+    var keys = modeObj ? Object.keys(modeObj.categories) : [];
+    // Fisher–Yates shuffle driven by the seeded rng, then take the first N.
+    var pool = keys.slice();
+    for (var i = pool.length - 1; i > 0; i--) {
+      var j = Math.floor(rng() * (i + 1));
+      var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+    }
+    return pool.slice(0, Math.min(CATEGORIES_PER_GAME, pool.length));
+  }
+
+  // Human-readable label for a category key within the active mode.
+  function categoryLabel(catKey) {
+    var modeObj = MODES[mode];
+    var cat = modeObj && modeObj.categories[catKey];
+    if (!cat) return catKey;
+    return cat.label + (cat.labelEs ? " · " + cat.labelEs : "");
+  }
+
+  // Build the draw pool: every word from the game's 5 active categories, tagged
+  // with its category. Falls back to the flat WORD_BANK if anything is missing.
+  function activeWordPool() {
+    var modeObj = MODES[mode];
+    var pool = [];
+    if (modeObj) {
+      activeCategories.forEach(function (catKey) {
+        var cat = modeObj.categories[catKey];
+        if (cat) cat.words.forEach(function (w) {
+          pool.push({ en: w.en, es: w.es, catKey: catKey });
+        });
+      });
+    }
+    if (!pool.length) {
+      pool = BANK.map(function (w) { return { en: w.en, es: w.es, catKey: w.category }; });
+    }
+    return pool;
+  }
+
+  // Draw a fresh word from the active 5-category pool. Honors the seeded rng and
+  // avoids an immediate repeat (bug 10) when alternatives exist.
+  function pickWord() {
+    var pool = activeWordPool();
+    if (!pool.length) return { en: "—", es: "—", catKey: null };
+    var word = pool[Math.floor(rng() * pool.length)];
+    if (pool.length > 1 && currentWord && word.en === currentWord.en) {
+      var others = pool.filter(function (w) { return w.en !== currentWord.en; });
       word = others[Math.floor(rng() * others.length)];
     }
     return word;
+  }
+
+  // Surface the 5 active categories on the Board view so players see the game's
+  // category set at a glance.
+  function renderActiveCategories() {
+    var wrap = $("activeCategories");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    var modeObj = MODES[mode];
+    var head = document.createElement("span");
+    head.className = "active-cats-label";
+    head.textContent = (modeObj ? modeObj.label : "Game") +
+      " categories · " + (modeObj ? modeObj.labelEs : "") + " categorías:";
+    wrap.appendChild(head);
+    activeCategories.forEach(function (catKey) {
+      var cat = modeObj && modeObj.categories[catKey];
+      var chip = document.createElement("span");
+      chip.className = "cat-chip";
+      chip.textContent = cat ? cat.label : catKey;
+      if (cat && cat.labelEs) chip.title = cat.label + " · " + cat.labelEs;
+      wrap.appendChild(chip);
+    });
   }
 
   // ---- setup screen -------------------------------------------------------
@@ -206,12 +252,12 @@
 
   function newRoundWord() {
     currentTile = activeTileForRound();
-    var tier = COMPLEXITY_TO_TIER[complexity] || "family";
-    currentWord = pickWord(tier, currentTile.category);
+    currentWord = pickWord();          // drawn from the game's 5 active categories
+    currentWordCat = currentWord.catKey;
     $("wordEn").textContent = currentWord.en;
     $("wordEs").textContent = currentWord.es;
     blurWord();                       // start blurred; reveal only on hold
-    $("wordCat").textContent = currentTile.category || "—";
+    $("wordCat").textContent = currentWordCat ? categoryLabel(currentWordCat) : "—";
     $("rollResult").textContent = "";
     resolvedThisRound = false;
     pendingWinnerId = null;
@@ -519,7 +565,12 @@
   function startGame() {
     seed = Date.now();
     rng = Rng.makeRng(seed);
-    complexity = $("complexity").value;
+    mode = ($("mode") && $("mode").value) || "family";
+    if (!MODES[mode]) mode = "family";
+    complexity = MODE_TO_COMPLEXITY[mode] || "medium";
+    // Pick this game's 5 random categories from the chosen mode (seeded).
+    activeCategories = pickGameCategories(mode);
+    renderActiveCategories();
     timerTotal = parseInt($("timerSeconds").value, 10) || 60;
     var names = getTeamNames();
     state = Turn.initGame(names, BOARD_SIZE, complexity, rng);
