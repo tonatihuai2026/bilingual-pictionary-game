@@ -40,6 +40,18 @@
   var currentWord = null;
   var currentTile = null;
   var resolvedThisRound = false;
+  var phase = "word";      // current phase view: "board" | "word" | "timer"
+
+  // Round-type is NOT modelled in the frozen core (every tile is "all-play").
+  // We DERIVE a Single-Team vs All-Play flag in the UI layer for the whole-screen
+  // signal: alternate by round number (odd = All Play, even = Single Team) and, on
+  // single-team rounds, spotlight the team whose turn it is (round-robin). This is
+  // purely presentational — movement/win/turn logic stays in lib/.
+  function isAllPlayRound() { return (round % 2) === 1; }
+  function spotlightTeamIndex() {
+    if (!state || !state.teams.length) return 0;
+    return (round - 1) % state.teams.length;
+  }
 
   // ---- audio (WebAudio beeps, no external files) --------------------------
   var audioCtx = null, muted = false, tickTimer = null;
@@ -189,13 +201,77 @@
     currentWord = pickWord(tier, currentTile.category);
     $("wordEn").textContent = currentWord.en;
     $("wordEs").textContent = currentWord.es;
-    $("wordEn").classList.add("revealed");
-    $("wordEs").classList.add("revealed");
+    blurWord();                       // start blurred; reveal only on hold
     $("wordCat").textContent = currentTile.category || "—";
     $("rollResult").textContent = "";
     resolvedThisRound = false;
+    renderRoundBanner();
     renderResolveButtons();
     renderBoard();
+    // Auto-advance: a fresh word starts on the Secret Word phase so the drawer reveals it.
+    setPhase("word");
+  }
+
+  // ---- phases -------------------------------------------------------------
+  var PHASES = ["board", "word", "timer"];
+  function setPhase(p) {
+    if (PHASES.indexOf(p) === -1) p = "word";
+    phase = p;
+    PHASES.forEach(function (name) {
+      var view = $("phase" + name.charAt(0).toUpperCase() + name.slice(1));
+      var tab = $("tab" + name.charAt(0).toUpperCase() + name.slice(1));
+      var active = (name === p);
+      if (view) view.hidden = !active;
+      if (tab) {
+        tab.classList.toggle("active", active);
+        tab.setAttribute("aria-selected", String(active));
+      }
+    });
+    window.scrollTo(0, 0);
+  }
+
+  // ---- round-type whole-screen signal -------------------------------------
+  function renderRoundBanner() {
+    var banner = $("roundBanner");
+    var allPlay = isAllPlayRound();
+    $("roundNumber").textContent = round;
+    banner.classList.toggle("round-allplay", allPlay);
+    banner.classList.toggle("round-single", !allPlay);
+
+    if (allPlay) {
+      $("roundType").textContent = "All Play!";
+      $("roundTypeEs").textContent = "¡Todos juegan!";
+      $("roundTeam").textContent = "Every team draws & guesses · Todos los equipos";
+      // All-play uses the brand accent across the whole screen.
+      document.body.style.setProperty("--round-color", "var(--ds-accent, #e8714f)");
+      banner.style.removeProperty("background");
+    } else {
+      var ti = spotlightTeamIndex();
+      var color = TOKEN_COLORS[ti % TOKEN_COLORS.length];
+      var name = state.teams[ti] ? state.teams[ti].name : ("Team " + (ti + 1));
+      $("roundType").textContent = "Single Team";
+      $("roundTypeEs").textContent = "Equipo único";
+      $("roundTeam").textContent = name + " draws · " + name + " dibuja";
+      document.body.style.setProperty("--round-color", color);
+      banner.style.background = color;
+    }
+    // Tint the whole screen so the round type is unmistakable at a glance.
+    document.body.classList.toggle("body-allplay", allPlay);
+    document.body.classList.toggle("body-single", !allPlay);
+  }
+
+  // ---- secret word blur / hold-to-reveal ----------------------------------
+  function revealWord() {
+    $("wordEn").classList.add("revealed");
+    $("wordEs").classList.add("revealed");
+    $("revealBtn").classList.add("revealing");
+    $("revealBtn").setAttribute("aria-pressed", "true");
+  }
+  function blurWord() {
+    $("wordEn").classList.remove("revealed");
+    $("wordEs").classList.remove("revealed");
+    var rb = $("revealBtn");
+    if (rb) { rb.classList.remove("revealing"); rb.setAttribute("aria-pressed", "false"); }
   }
 
   function renderResolveButtons() {
@@ -232,14 +308,16 @@
         "<span lang='es'>¡" + team.name + " gana!</span>";
       $("nextRound").disabled = true;
     }
+    // Auto-advance: the round has been scored on the Timer phase; stay here so the
+    // host can roll-on and tap "Next word" to begin the next round.
+    setPhase("timer");
   }
 
   function nextRound() {
     if (state.winner !== null) return;
     round += 1;
-    $("roundNumber").textContent = round;
     resetTimer();
-    newRoundWord();
+    newRoundWord();   // bumps round banner + auto-advances back to the Secret Word phase
   }
 
   // ---- timer --------------------------------------------------------------
@@ -258,6 +336,7 @@
     if (timerRunning || state.winner !== null) return;
     ensureAudio();
     timerRunning = true;
+    setPhase("timer");   // auto-advance: drawing has begun, show the clock
     $("startTimer").textContent = "Pause";
     timerInterval = setInterval(function () {
       timerRemaining -= 1;
@@ -267,6 +346,8 @@
         stopTimer();
         sound.timesUp();
         $("startTimer").textContent = "Start Timer";
+        // Auto-advance: time's up -> score the round (pick the winner) on this phase.
+        setPhase("timer");
         return;
       }
       if (timerRemaining <= 5) sound.warn(); else sound.tick();
@@ -293,13 +374,12 @@
     var names = getTeamNames();
     state = Turn.initGame(names, BOARD_SIZE, complexity, rng);
     round = 1;
-    $("roundNumber").textContent = round;
     $("winBanner").style.display = "none";
     $("nextRound").disabled = false;
     $("setup").style.display = "none";
     $("game").style.display = "block";
     resetTimer();
-    newRoundWord();
+    newRoundWord();   // sets round banner + auto-advances to the Secret Word phase
     ensureAudio();
     window.scrollTo(0, 0);
   }
@@ -307,6 +387,7 @@
   function endGame() {
     stopTimer();
     state = null;
+    document.body.classList.remove("body-allplay", "body-single");
     $("game").style.display = "none";
     $("setup").style.display = "block";
     window.scrollTo(0, 0);
@@ -337,6 +418,33 @@
     });
     $("resetTimer").addEventListener("click", resetTimer);
     $("muteBtn").addEventListener("click", toggleMute);
+
+    // Phase tabs — manual navigation at any time (timer keeps running across switches).
+    ["Board", "Word", "Timer"].forEach(function (cap) {
+      var tab = $("tab" + cap);
+      if (tab) tab.addEventListener("click", function () { setPhase(cap.toLowerCase()); });
+    });
+
+    // Secret Word: blurred by default; reveal ONLY while the button is held.
+    var rb = $("revealBtn");
+    if (rb) {
+      var hold = function (e) { e.preventDefault(); revealWord(); };
+      var release = function () { blurWord(); };
+      rb.addEventListener("pointerdown", hold);
+      rb.addEventListener("pointerup", release);
+      rb.addEventListener("pointerleave", release);
+      rb.addEventListener("pointercancel", release);
+      // Touch fallback for browsers without Pointer Events.
+      rb.addEventListener("touchstart", hold, { passive: false });
+      rb.addEventListener("touchend", release);
+      rb.addEventListener("touchcancel", release);
+      // Keyboard accessibility: reveal while Space/Enter held.
+      rb.addEventListener("keydown", function (e) {
+        if (e.key === " " || e.key === "Enter") { e.preventDefault(); revealWord(); }
+      });
+      rb.addEventListener("keyup", release);
+      rb.addEventListener("blur", release);
+    }
   }
 
   if (document.readyState === "loading") {

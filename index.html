@@ -72,46 +72,78 @@
   <section id="game" style="display:none;">
     <div id="winBanner" class="win-banner" style="display:none;"></div>
 
-    <div class="turn-banner">
-      Round <span id="roundNumber">1</span> &mdash; <strong>All play!</strong> &middot; <span lang="es">¡Todos juegan!</span>
+    <!-- Whole-screen round-type signal: Single-Team vs All-Play, tinted with team color -->
+    <div id="roundBanner" class="round-banner round-allplay">
+      <span class="round-banner-round">Round <span id="roundNumber">1</span></span>
+      <span class="round-banner-type" id="roundType">All Play!</span>
+      <span class="round-banner-type-es" lang="es" id="roundTypeEs">¡Todos juegan!</span>
+      <span class="round-banner-team" id="roundTeam"></span>
     </div>
 
-    <!-- Board -->
-    <h3>Board &middot; <span lang="es">Tablero</span></h3>
-    <div id="board" class="board" aria-label="Game board"></div>
+    <!-- Phase tabs: Board | Secret Word | Timer -->
+    <div class="phase-tabs" role="tablist" aria-label="Game phase">
+      <button class="phase-tab" id="tabBoard" role="tab" data-phase="board" aria-selected="false">
+        <span class="phase-tab-ico">🗺️</span>
+        <span class="phase-tab-label">Board<span lang="es"> · Tablero</span></span>
+      </button>
+      <button class="phase-tab" id="tabWord" role="tab" data-phase="word" aria-selected="false">
+        <span class="phase-tab-ico">🤫</span>
+        <span class="phase-tab-label">Secret Word<span lang="es"> · Palabra</span></span>
+      </button>
+      <button class="phase-tab" id="tabTimer" role="tab" data-phase="timer" aria-selected="false">
+        <span class="phase-tab-ico">⏱️</span>
+        <span class="phase-tab-label">Timer<span lang="es"> · Tiempo</span></span>
+      </button>
+    </div>
 
-    <!-- Word -->
-    <div class="word-card">
-      <h3>This round's word &middot; <span lang="es">Palabra de la ronda</span></h3>
-      <p class="cat-tag">Category &middot; <span lang="es">Categoría</span>: <span id="wordCat">—</span></p>
-      <div class="word-row">
-        <span class="lang-label">EN</span>
-        <span id="wordEn" class="word">???</span>
+    <!-- ---- Phase: Board ---- -->
+    <div class="phase-view" id="phaseBoard" data-phase="board" role="tabpanel" hidden>
+      <h2 class="phase-heading">Board &middot; <span lang="es">Tablero</span></h2>
+      <p class="hint">Track each team's token. The active phase auto-follows the game flow &mdash; tap a tab anytime to look around.</p>
+      <div id="board" class="board" aria-label="Game board"></div>
+    </div>
+
+    <!-- ---- Phase: Secret Word ---- -->
+    <div class="phase-view" id="phaseWord" data-phase="word" role="tabpanel" hidden>
+      <h2 class="phase-heading">Secret Word &middot; <span lang="es">Palabra secreta</span></h2>
+      <div class="word-card">
+        <p class="cat-tag">Category &middot; <span lang="es">Categoría</span>: <span id="wordCat">—</span></p>
+        <p class="hint" id="wordAudience">Drawer only &mdash; take the device privately. &middot; <span lang="es">Solo quien dibuja.</span></p>
+        <div class="word-row">
+          <span class="lang-label">EN</span>
+          <span id="wordEn" class="word">???</span>
+        </div>
+        <div class="word-row">
+          <span class="lang-label">ES</span>
+          <span id="wordEs" class="word">???</span>
+        </div>
+        <button id="revealBtn" class="reveal-btn" type="button" aria-pressed="false">
+          👁️ Hold to reveal &middot; <span lang="es">Mantén para ver</span>
+        </button>
+        <p class="hint">Both languages count when you guess!</p>
       </div>
-      <div class="word-row">
-        <span class="lang-label">ES</span>
-        <span id="wordEs" class="word">???</span>
+    </div>
+
+    <!-- ---- Phase: Timer ---- -->
+    <div class="phase-view" id="phaseTimer" data-phase="timer" role="tabpanel" hidden>
+      <h2 class="phase-heading">Timer &middot; <span lang="es">Cronómetro</span></h2>
+      <div class="timer-card">
+        <div id="timerDisplay" class="timer-display">01:00</div>
+        <button id="startTimer">Start Timer &middot; <span lang="es">Iniciar</span></button>
+        <button class="secondary" id="resetTimer">Reset</button>
       </div>
-      <p class="hint">All teams draw &amp; guess at once. Both languages count!</p>
+
+      <!-- Resolve: who won this round -->
+      <div class="resolve-card">
+        <h3 id="resolveHeading">Who guessed first? &middot; <span lang="es">¿Quién adivinó primero?</span></h3>
+        <p class="hint" id="resolveHint">Tap the team that guessed it first &mdash; they roll the die and move ahead.</p>
+        <div id="resolveButtons" class="resolve-buttons"></div>
+        <div id="rollResult" class="roll-result" aria-live="polite"></div>
+      </div>
+
+      <button class="secondary" id="nextRound">Next word &middot; <span lang="es">Siguiente palabra</span></button>
     </div>
 
-    <!-- Timer -->
-    <div class="timer-card">
-      <h3>Timer &middot; <span lang="es">Cronómetro</span></h3>
-      <div id="timerDisplay" class="timer-display">01:00</div>
-      <button id="startTimer">Start Timer &middot; <span lang="es">Iniciar</span></button>
-      <button class="secondary" id="resetTimer">Reset</button>
-    </div>
-
-    <!-- Resolve: who guessed first -->
-    <div class="resolve-card">
-      <h3>Who guessed first? &middot; <span lang="es">¿Quién adivinó primero?</span></h3>
-      <p class="hint">Tap the team that guessed it first &mdash; they roll the die and move ahead.</p>
-      <div id="resolveButtons" class="resolve-buttons"></div>
-      <div id="rollResult" class="roll-result" aria-live="polite"></div>
-    </div>
-
-    <button class="secondary" id="nextRound">Next word / Skip &middot; <span lang="es">Siguiente</span></button>
     <button class="secondary" id="endGame">End Game / New Setup</button>
   </section>
 

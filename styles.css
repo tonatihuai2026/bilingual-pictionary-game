@@ -136,8 +136,8 @@ button:focus-visible { outline: 2px solid var(--ds-accent); outline-offset: 2px;
   color: #fff; background: var(--teal); border: 1px solid var(--teal);
   border-radius: 5px; padding: .2rem 0;
 }
-.word { flex: 1; text-align: left; font-size: clamp(1.4rem, 6vw, 1.8rem); font-weight: 700; line-height: 1.2; filter: blur(7px); user-select: none; }
-.word.revealed { filter: none; }
+.word { flex: 1; text-align: left; font-size: clamp(1.4rem, 6vw, 1.8rem); font-weight: 700; line-height: 1.2; filter: blur(9px); user-select: none; transition: filter .12s ease; }
+.word.revealed { filter: none; user-select: text; }
 .word-card .hint { text-align: center; margin: .25rem 0 .75rem; }
 
 .dice-face {
@@ -218,9 +218,6 @@ header { position: relative; }
 .cat-tag { font-size: .8rem; color: #5a5f66; margin: 0 0 .5rem; }
 .cat-tag #wordCat { font-weight: 700; color: var(--teal-dark); text-transform: capitalize; }
 
-/* the round word is meant to be visible to everyone (all-play) */
-.word { filter: none; }
-
 /* ---- timer warning ---- */
 .timer-warn { color: var(--coral-ink) !important; animation: pulse .5s ease infinite alternate; }
 @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.08); } }
@@ -242,6 +239,67 @@ header { position: relative; }
 .roll-result { margin-top: .75rem; font-size: 1.05rem; min-height: 1.4rem; }
 
 #nextRound, #endGame { display: block; width: 100%; margin-right: 0; }
+#nextRound { background: var(--teal); color: #fff; border-color: var(--teal); }
+#endGame { margin-top: 1.25rem; }
+
+/* ---- round-type whole-screen signal ---- */
+:root { --round-color: var(--ds-accent, #e8714f); }
+/* Tint the whole page background with the active round color (subtle wash). */
+body.body-allplay, body.body-single {
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--round-color) 16%, var(--cream)) 0,
+      var(--cream) 320px),
+    var(--cream);
+}
+.round-banner {
+  border-radius: var(--ds-radius); box-shadow: var(--ds-shadow-hover);
+  padding: .85rem 1rem; margin-bottom: 1rem; text-align: center; color: #fff;
+  display: flex; flex-direction: column; gap: .15rem; align-items: center;
+  border: 3px solid color-mix(in srgb, var(--round-color) 60%, #000);
+  background: var(--round-color);
+  animation: pop .3s ease;
+}
+.round-banner.round-allplay { background: var(--ds-accent, var(--coral)); border-color: color-mix(in srgb, var(--coral) 55%, #000); }
+.round-banner-round { font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; opacity: .9; }
+.round-banner-type { font-size: 1.5rem; font-weight: 800; line-height: 1.1; }
+.round-banner-type-es { font-size: .95rem; opacity: .92; }
+.round-banner-team { font-size: .85rem; font-weight: 600; opacity: .95; margin-top: .1rem; }
+
+/* ---- phase tabs ---- */
+.phase-tabs {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem;
+  margin-bottom: 1rem;
+  position: sticky; top: 0; z-index: 5;
+  background: var(--cream); padding: .25rem 0;
+}
+.phase-tab {
+  margin: 0; flex: 1; min-height: 3.2rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .1rem;
+  background: var(--ds-surface, #fff); color: var(--teal-dark);
+  border: 2px solid color-mix(in srgb, var(--ds-ink) 16%, transparent);
+  box-shadow: var(--ds-shadow); font-size: .82rem; line-height: 1.1;
+  padding: .35rem .25rem;
+}
+.phase-tab:hover { transform: none; }
+.phase-tab .phase-tab-ico { font-size: 1.2rem; }
+.phase-tab .phase-tab-label span[lang="es"] { opacity: .7; font-size: .72rem; }
+.phase-tab.active {
+  background: var(--teal); color: #fff; border-color: var(--teal-dark);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 30%, transparent);
+}
+.phase-tab.active .phase-tab-label span[lang="es"] { opacity: .85; }
+
+.phase-view[hidden] { display: none; }
+.phase-heading { border-bottom: 2px solid var(--round-color, var(--coral)); margin-top: 0; }
+
+/* ---- hold-to-reveal button ---- */
+.reveal-btn {
+  display: block; width: 100%; margin: .75rem 0 .25rem;
+  background: var(--teal); font-size: 1.05rem; padding: .8rem 1rem;
+  touch-action: none; -webkit-user-select: none; user-select: none;
+}
+.reveal-btn.revealing { background: var(--coral-ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--coral) 35%, transparent); }
 
 @media (max-width: 480px) {
   .setup-row label { min-width: 100%; }
@@ -249,4 +307,6 @@ header { position: relative; }
   .round-controls button { flex-basis: 100%; }
   .board { grid-template-columns: repeat(3, 1fr); }
   #endGame { display: block; width: 100%; margin-right: 0; }
+  .phase-tab { font-size: .76rem; }
+  .phase-tab .phase-tab-label span[lang="es"] { display: none; }
 }
