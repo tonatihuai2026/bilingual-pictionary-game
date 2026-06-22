@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sketch Fiesta — Free English/Spanish Drawing Game</title>
-<meta name="description" content="Free bilingual Draw and Guess game for English and Spanish-speaking families. Single-device pass-and-play, words shown in both languages at once, configurable teams and difficulty.">
+<title>Sketch Fiesta — Free English/Spanish Draw-and-Guess Board Game</title>
+<meta name="description" content="Free bilingual draw-and-guess BOARD game for English and Spanish-speaking families. Move your team across the board, all-play rounds, words shown in both languages at once, seeded dice, built-in timer with sound.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://tonatihuai2026.github.io/bilingual-pictionary-game/">
-<meta property="og:title" content="Sketch Fiesta — Free English/Spanish Drawing Game">
-<meta property="og:description" content="Free bilingual Draw and Guess game for mixed English/Spanish-speaking families. No account, no app store, runs in your browser.">
+<meta property="og:title" content="Sketch Fiesta — Free English/Spanish Draw-and-Guess Board Game">
+<meta property="og:description" content="Free bilingual draw-and-guess board game for mixed English/Spanish-speaking families. No account, no app store, runs in your browser.">
 <meta name="twitter:card" content="summary">
 <meta name="google-site-verification" content="vcQAwsOMbG5UuDanWVq7T7KQQGwqCF837cfBN2HMVBc" />
 <meta name="google-adsense-account" content="ca-pub-8781477226668093">
@@ -21,7 +21,7 @@
   "url": "https://tonatihuai2026.github.io/bilingual-pictionary-game/",
   "applicationCategory": "GameApplication",
   "operatingSystem": "Any (runs in browser)",
-  "description": "Free bilingual Draw and Guess game for English and Spanish-speaking families. Single-device pass-and-play, words shown in both languages at once.",
+  "description": "Free bilingual draw-and-guess board game for English and Spanish-speaking families. Move your team across the board, all-play rounds, words shown in both languages at once.",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
 }
 </script>
@@ -31,13 +31,15 @@
 <body>
 <header>
   <h1>Sketch Fiesta</h1>
-  <p>Free drawing-and-guessing game for English &amp; Spanish-speaking families &mdash; one device, pass and play.</p>
+  <p>Free bilingual draw-and-guess <strong>board game</strong> &mdash; race your team to the finish, one device, all play every round.</p>
+  <button id="muteBtn" class="mute-btn" type="button" aria-pressed="false" title="Toggle sound">🔊 Sound</button>
 </header>
 <main>
+  <!-- ============ SETUP ============ -->
   <section id="setup">
-    <h2>Game Setup</h2>
+    <h2>Game Setup &middot; <span lang="es">Configurar juego</span></h2>
     <div class="setup-row">
-      <label for="teamCount">Number of teams:</label>
+      <label for="teamCount">Number of teams &middot; <span lang="es">Equipos</span>:</label>
       <select id="teamCount">
         <option value="2" selected>2</option>
         <option value="3">3</option>
@@ -46,16 +48,15 @@
     </div>
     <div id="teamNames" class="team-names"></div>
     <div class="setup-row">
-      <label for="tier">Word difficulty (age range):</label>
-      <select id="tier">
-        <option value="kids">Kids (simple &amp; concrete)</option>
-        <option value="family" selected>Family (mixed)</option>
-        <option value="adults">Adults (harder, abstract)</option>
-        <option value="any">Everyone (mix of all)</option>
+      <label for="complexity">Complexity &middot; <span lang="es">Dificultad</span>:</label>
+      <select id="complexity">
+        <option value="easy">Easy &middot; Fácil (animals, food, objects)</option>
+        <option value="medium" selected>Medium &middot; Media (+ actions, places)</option>
+        <option value="hard">Hard &middot; Difícil (+ abstract, idioms)</option>
       </select>
     </div>
     <div class="setup-row">
-      <label for="timerSeconds">Timer per turn:</label>
+      <label for="timerSeconds">Timer per round &middot; <span lang="es">Tiempo</span>:</label>
       <select id="timerSeconds">
         <option value="30">30 seconds</option>
         <option value="60" selected>60 seconds</option>
@@ -63,17 +64,26 @@
         <option value="120">2 minutes</option>
       </select>
     </div>
-    <button id="startGame">Start Game</button>
-    <p class="hint">You'll need a pencil and paper (or a whiteboard) to draw &mdash; this app handles word selection, the dice challenge, scoring, and the timer.</p>
+    <button id="startGame">Start Game &middot; <span lang="es">Empezar</span></button>
+    <p class="hint">You'll need pencils and paper (or a whiteboard) to draw &mdash; this app handles the board, the words, the dice, and the timer.</p>
   </section>
 
+  <!-- ============ GAME ============ -->
   <section id="game" style="display:none;">
+    <div id="winBanner" class="win-banner" style="display:none;"></div>
+
     <div class="turn-banner">
-      <span id="currentTeam"></span>'s turn &mdash; Round <span id="roundNumber"></span>
+      Round <span id="roundNumber">1</span> &mdash; <strong>All play!</strong> &middot; <span lang="es">¡Todos juegan!</span>
     </div>
 
+    <!-- Board -->
+    <h3>Board &middot; <span lang="es">Tablero</span></h3>
+    <div id="board" class="board" aria-label="Game board"></div>
+
+    <!-- Word -->
     <div class="word-card">
-      <h3>Your Word</h3>
+      <h3>This round's word &middot; <span lang="es">Palabra de la ronda</span></h3>
+      <p class="cat-tag">Category &middot; <span lang="es">Categoría</span>: <span id="wordCat">—</span></p>
       <div class="word-row">
         <span class="lang-label">EN</span>
         <span id="wordEn" class="word">???</span>
@@ -82,47 +92,46 @@
         <span class="lang-label">ES</span>
         <span id="wordEs" class="word">???</span>
       </div>
-      <p class="hint">Same word in both languages &mdash; keep it hidden until you're the drawer.</p>
-      <button id="revealWord">Reveal Word (drawer only!)</button>
+      <p class="hint">All teams draw &amp; guess at once. Both languages count!</p>
     </div>
 
-    <div class="dice-card">
-      <h3>Dice Challenge</h3>
-      <div id="diceFace" class="dice-face">-</div>
-      <p class="hint">Roll for a fun twist on how you draw this round.</p>
-      <button id="rollDice">Roll Dice</button>
-    </div>
-
+    <!-- Timer -->
     <div class="timer-card">
-      <h3>Timer</h3>
+      <h3>Timer &middot; <span lang="es">Cronómetro</span></h3>
       <div id="timerDisplay" class="timer-display">01:00</div>
-      <button id="startTimer">Start Timer</button>
+      <button id="startTimer">Start Timer &middot; <span lang="es">Iniciar</span></button>
+      <button class="secondary" id="resetTimer">Reset</button>
     </div>
 
-    <div class="round-controls">
-      <button id="markCorrect">Correct! (+1 point)</button>
-      <button class="secondary" id="skipWord">Skip / No points</button>
+    <!-- Resolve: who guessed first -->
+    <div class="resolve-card">
+      <h3>Who guessed first? &middot; <span lang="es">¿Quién adivinó primero?</span></h3>
+      <p class="hint">Tap the team that guessed it first &mdash; they roll the die and move ahead.</p>
+      <div id="resolveButtons" class="resolve-buttons"></div>
+      <div id="rollResult" class="roll-result" aria-live="polite"></div>
     </div>
 
-    <h3>Scores</h3>
-    <div id="scores" class="scores"></div>
-
+    <button class="secondary" id="nextRound">Next word / Skip &middot; <span lang="es">Siguiente</span></button>
     <button class="secondary" id="endGame">End Game / New Setup</button>
   </section>
 
+  <!-- ============ RULES ============ -->
   <section class="rules">
-    <h2>How to Play</h2>
+    <h2>How to Play &middot; <span lang="es">Cómo jugar</span></h2>
     <ol>
-      <li>Set up your teams (2-4), pick a difficulty level, and a timer length.</li>
-      <li>Only the current drawer looks at the word (in English and Spanish at once) and draws it on paper or a whiteboard &mdash; no talking, no writing letters/numbers.</li>
-      <li>Roll the dice for a random twist on the round (e.g. draw with your eyes closed, no sounds at all, double points).</li>
-      <li>Start the timer. Teammates guess out loud in either language.</li>
-      <li>Mark "Correct" to score a point and move to the next team, or "Skip" if time runs out.</li>
+      <li>Set up 2&ndash;4 teams and pick a complexity level (it controls the tile categories).</li>
+      <li>Each round shows one word in <strong>English and Spanish at once</strong>. Every team draws and guesses at the same time &mdash; it's all-play.</li>
+      <li>Start the timer. When a team guesses correctly (in either language), tap that team's button.</li>
+      <li>That team rolls the die and their token advances across the board.</li>
+      <li>First team to reach the finish tile wins! &middot; <span lang="es">¡El primer equipo en llegar a la meta gana!</span></li>
     </ol>
-    <p>This version is single-device, pass-and-play &mdash; everyone gathers around one phone, tablet, or laptop. Online multiplayer with live drawing is planned for a future version.</p>
+    <p>Single-device and seeded for reproducible games. Online multiplayer with live drawing is planned for a future version.</p>
   </section>
 </main>
+<script src="lib/rng.js"></script>
+<script src="lib/game.js"></script>
+<script src="lib/turn.js"></script>
 <script src="words.js"></script>
-<script src="pictionary.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

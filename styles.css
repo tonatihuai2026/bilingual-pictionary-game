@@ -168,9 +168,85 @@ button:focus-visible { outline: 2px solid var(--ds-accent); outline-offset: 2px;
 .rules ol { padding-left: 1.3rem; }
 .rules li { margin-bottom: .4rem; }
 
+/* ---- mute button (header) ---- */
+.mute-btn {
+  position: absolute; top: .9rem; right: .9rem;
+  background: rgba(255,255,255,.16); color: var(--cream);
+  border: 1px solid rgba(255,255,255,.5); box-shadow: none;
+  min-height: 2.2rem; padding: .3rem .7rem; font-size: .85rem; margin: 0;
+}
+.mute-btn:hover { background: rgba(255,255,255,.28); box-shadow: none; transform: none; }
+header { position: relative; }
+
+/* ---- win banner ---- */
+.win-banner {
+  background: var(--ds-accent, var(--coral)); color: #fff;
+  border-radius: var(--ds-radius); box-shadow: var(--ds-shadow-hover);
+  padding: 1rem; text-align: center; font-size: 1.3rem; margin-bottom: 1rem;
+  animation: pop .35s ease;
+}
+@keyframes pop { 0% { transform: scale(.85); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+/* ---- board ---- */
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .5rem; margin: .5rem 0 1.25rem;
+}
+.tile {
+  position: relative; min-height: 64px;
+  background: var(--ds-surface, #fff);
+  border: 1.5px solid color-mix(in srgb, var(--ds-ink) 14%, transparent);
+  border-radius: calc(var(--ds-radius) * .7);
+  box-shadow: var(--ds-shadow);
+  padding: .35rem; display: flex; flex-direction: column; justify-content: space-between;
+  transition: box-shadow .15s ease, border-color .15s ease, transform .08s ease;
+}
+.tile-start { border-color: var(--teal); }
+.tile-finish { border-color: var(--ds-accent, var(--coral)); background: color-mix(in srgb, var(--coral) 10%, #fff); }
+.tile-active { border-color: var(--ds-accent, var(--coral)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--coral) 30%, transparent); transform: translateY(-2px); }
+.tile-num { font-size: .8rem; font-weight: 700; color: var(--teal-dark); }
+.tile-cat { font-size: .62rem; text-transform: uppercase; letter-spacing: .03em; color: #5a5f66; }
+.tile-tokens { display: flex; flex-wrap: wrap; gap: 2px; min-height: 18px; }
+.token {
+  width: 18px; height: 18px; border-radius: 50%; color: #fff;
+  font-size: .7rem; font-weight: 700; line-height: 18px; text-align: center;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+
+/* ---- category tag on word card ---- */
+.cat-tag { font-size: .8rem; color: #5a5f66; margin: 0 0 .5rem; }
+.cat-tag #wordCat { font-weight: 700; color: var(--teal-dark); text-transform: capitalize; }
+
+/* the round word is meant to be visible to everyone (all-play) */
+.word { filter: none; }
+
+/* ---- timer warning ---- */
+.timer-warn { color: var(--coral-ink) !important; animation: pulse .5s ease infinite alternate; }
+@keyframes pulse { from { transform: scale(1); } to { transform: scale(1.08); } }
+
+/* ---- resolve (who guessed first) ---- */
+.resolve-card {
+  background: var(--ds-surface, #fff); border-radius: var(--ds-radius);
+  box-shadow: var(--ds-shadow); padding: 1rem; margin-bottom: 1rem; text-align: center;
+  border-top: 4px solid var(--teal);
+}
+.resolve-buttons { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; }
+.resolve-buttons button {
+  flex: 1 1 8rem; margin: 0;
+  background: transparent; color: var(--ds-ink);
+  border: 2px solid var(--teal);
+}
+.resolve-buttons button:hover { background: color-mix(in srgb, var(--ds-primary) 8%, transparent); }
+.resolve-buttons button:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+.roll-result { margin-top: .75rem; font-size: 1.05rem; min-height: 1.4rem; }
+
+#nextRound, #endGame { display: block; width: 100%; margin-right: 0; }
+
 @media (max-width: 480px) {
   .setup-row label { min-width: 100%; }
   .setup-row select { width: 100%; flex-basis: 100%; }
   .round-controls button { flex-basis: 100%; }
+  .board { grid-template-columns: repeat(3, 1fr); }
   #endGame { display: block; width: 100%; margin-right: 0; }
 }
