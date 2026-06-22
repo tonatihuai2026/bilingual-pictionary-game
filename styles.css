@@ -214,6 +214,42 @@ header { position: relative; }
   box-shadow: 0 1px 2px rgba(0,0,0,.25);
 }
 
+/* ---- board roll card (round resolution via the Board) ---- */
+.roll-card {
+  background: var(--ds-surface, #fff); border-radius: var(--ds-radius);
+  box-shadow: var(--ds-shadow-hover); padding: 1.1rem 1rem 1.25rem;
+  margin: .25rem 0 1.25rem; text-align: center;
+  border-top: 4px solid var(--ds-accent, var(--coral));
+  animation: pop .3s ease;
+}
+.roll-card[hidden] { display: none; }
+.roll-winner { margin: 0 0 .5rem; font-size: 1.05rem; }
+.roll-die {
+  font-size: 3.4rem; line-height: 1; margin: .25rem auto .6rem;
+  display: inline-block; transform-origin: 50% 50%;
+}
+.roll-die.rolling { animation: dice-roll .35s linear infinite; }
+@keyframes dice-roll {
+  0%   { transform: rotate(0deg)   scale(1); }
+  50%  { transform: rotate(180deg) scale(1.18); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+.roll-dice-btn {
+  display: block; width: 100%; margin: 0 0 .25rem;
+  background: var(--ds-accent, var(--coral)); font-size: 1.1rem; padding: .8rem 1rem;
+}
+.roll-dice-btn:hover { background: color-mix(in srgb, var(--ds-accent) 88%, #000); }
+.roll-dice-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+.roll-dice-btn[hidden] { display: none; }
+.board-next-round { display: block; width: 100%; margin: .75rem 0 0; }
+.board-next-round[hidden] { display: none; }
+.token-moved { animation: token-pop .6s ease; }
+@keyframes token-pop {
+  0%   { transform: scale(1); box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+  35%  { transform: scale(1.9); box-shadow: 0 0 0 4px color-mix(in srgb, var(--coral) 45%, transparent); }
+  100% { transform: scale(1); box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+}
+
 /* ---- category tag on word card ---- */
 .cat-tag { font-size: .8rem; color: #5a5f66; margin: 0 0 .5rem; }
 .cat-tag #wordCat { font-weight: 700; color: var(--teal-dark); text-transform: capitalize; }
@@ -308,11 +344,14 @@ body.body-allplay, body.body-single {
 }
 .word-start-timer:hover { background: color-mix(in srgb, var(--ds-accent) 88%, #000); }
 .preroll {
+  display: block;
   margin: 1rem 0 .25rem; padding: 1rem; text-align: center;
   background: color-mix(in srgb, var(--ds-accent) 10%, var(--ds-surface, #fff));
   border: 2px solid var(--ds-accent, var(--coral));
   border-radius: var(--ds-radius, 10px);
 }
+.preroll[hidden] { display: none; }
+.word-start-timer[hidden] { display: none; }
 .preroll-label { margin: 0 0 .25rem; font-weight: 600; color: var(--ds-ink); }
 .preroll-count {
   font-size: 4rem; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums;

@@ -108,7 +108,14 @@
       return keys.some(function (k) { return en.indexOf(k) !== -1; });
     });
     var chosen = matches.length ? matches : pool;
-    return chosen[Math.floor(rng() * chosen.length)];
+    // Bug 10: "Next word" kept showing the SAME word. Avoid an immediate repeat by
+    // re-drawing when the pick matches the previous word (only if alternatives exist).
+    var word = chosen[Math.floor(rng() * chosen.length)];
+    if (chosen.length > 1 && currentWord && word.en === currentWord.en) {
+      var others = chosen.filter(function (w) { return w.en !== currentWord.en; });
+      word = others[Math.floor(rng() * others.length)];
+    }
+    return word;
   }
 
   // ---- setup screen -------------------------------------------------------
@@ -132,6 +139,8 @@
       input.type = "text";
       input.maxLength = 24;
       input.value = (existing[i] !== undefined && existing[i] !== "") ? existing[i] : defaults[i];
+      // Bug 9: on focus, select all text so one keystroke replaces a default name.
+      input.addEventListener("focus", function (e) { e.target.select(); });
       row.appendChild(label); row.appendChild(input);
       wrap.appendChild(row);
     }
@@ -205,6 +214,8 @@
     $("wordCat").textContent = currentTile.category || "—";
     $("rollResult").textContent = "";
     resolvedThisRound = false;
+    pendingWinnerId = null;
+    hideRollPrompt();
     renderRoundBanner();
     renderResolveButtons();
     renderBoard();
@@ -283,24 +294,92 @@
       btn.type = "button";
       btn.textContent = t.name;
       btn.style.borderColor = TOKEN_COLORS[ti % TOKEN_COLORS.length];
-      btn.disabled = resolvedThisRound || state.winner !== null;
+      btn.disabled = resolvedThisRound || pendingWinnerId !== null || state.winner !== null;
       btn.addEventListener("click", function () { resolve(t.id); });
       wrap.appendChild(btn);
     });
   }
 
+  // Item 8 — round resolution routes through the Board:
+  //   pick winner -> go to BOARD -> "Roll dice" (animated) -> token moves -> Next word.
+  // The team picker (Timer tab) only SELECTS the winner here; the actual roll/movement
+  // is deferred to the Board's Roll-dice button, which calls Turn.resolveGuess.
+  var pendingWinnerId = null;   // winner chosen, waiting for the dice roll on the Board
+  var diceAnimTimer = null;
+  var DICE_FACES = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
+
   function resolve(teamId) {
-    if (resolvedThisRound || state.winner !== null) return;
+    if (resolvedThisRound || pendingWinnerId !== null || state.winner !== null) return;
     stopPreroll();
     stopTimer();
-    var res = Turn.resolveGuess(state, teamId, rng);
+    pendingWinnerId = teamId;
+    renderResolveButtons();     // lock the picker now that a winner is chosen
+    // Auto-navigate to the Board tab and present the Roll-dice control there.
+    showRollPrompt();
+    setPhase("board");
+  }
+
+  // Board roll UI — shows the chosen winner + a Roll-dice button (pre-roll state).
+  function showRollPrompt() {
+    var team = state.teams.filter(function (t) { return t.id === pendingWinnerId; })[0];
+    var ti = team ? team.id : 0;
+    var color = TOKEN_COLORS[ti % TOKEN_COLORS.length];
+    $("rollCard").hidden = false;
+    $("rollWinner").innerHTML = "<strong style='color:" + color + "'>" + team.name +
+      "</strong> guessed first &mdash; roll to move! &middot; " +
+      "<span lang='es'>¡" + team.name + " adivinó primero!</span>";
+    var die = $("rollDie");
+    die.textContent = "🎲";
+    die.classList.remove("rolling");
+    var btn = $("rollDiceBtn");
+    btn.hidden = false; btn.disabled = false;
+    $("rollOutcome").textContent = "";
+    $("boardNextRound").hidden = true;
+  }
+
+  function hideRollPrompt() {
+    var card = $("rollCard");
+    if (card) card.hidden = true;
+    if (diceAnimTimer) { clearInterval(diceAnimTimer); diceAnimTimer = null; }
+  }
+
+  function rollDiceForWinner() {
+    if (pendingWinnerId === null || resolvedThisRound || state.winner !== null) return;
+    var teamId = pendingWinnerId;
+    var btn = $("rollDiceBtn");
+    btn.disabled = true;
+    var die = $("rollDie");
+    die.classList.add("rolling");
     sound.roll();
+
+    // Resolve via the FROZEN lib (it does the rolling + movement); we only animate.
+    var res = Turn.resolveGuess(state, teamId, rng);
+
+    // ~1s dice animation cycling faces, then settle on the real roll face.
+    var ticks = 0;
+    diceAnimTimer = setInterval(function () {
+      ticks += 1;
+      die.textContent = DICE_FACES[1 + (ticks % 6)];
+      if (ticks >= 9) {
+        clearInterval(diceAnimTimer); diceAnimTimer = null;
+        die.textContent = DICE_FACES[res.roll] || ("🎲" + res.roll);
+        die.classList.remove("rolling");
+        applyRollResult(res, teamId);
+      }
+    }, 110);
+  }
+
+  function applyRollResult(res, teamId) {
     state = res.state;
     resolvedThisRound = true;
+    pendingWinnerId = null;
     var team = state.teams.filter(function (t) { return t.id === teamId; })[0];
-    $("rollResult").innerHTML = "🎲 <strong>" + team.name + "</strong> rolled <strong>" +
-      res.roll + "</strong> and moved to tile " + team.pos + ".";
-    renderBoard();
+    var msg = "🎲 <strong>" + team.name + "</strong> rolled <strong>" + res.roll +
+      "</strong> &rarr; tile " + team.pos + ".";
+    $("rollOutcome").innerHTML = msg;
+    $("rollResult").innerHTML = msg;   // mirror on the Timer tab's resolve card
+    renderBoard();                      // re-render moves the token to its new tile
+    animateWinnerToken(teamId);
     renderResolveButtons();
     if (res.won) {
       sound.win();
@@ -309,10 +388,25 @@
       banner.innerHTML = "🏆 <strong>" + team.name + "</strong> wins! &middot; " +
         "<span lang='es'>¡" + team.name + " gana!</span>";
       $("nextRound").disabled = true;
+    } else {
+      // Prompt for the next word right on the Board so the host stays in this flow.
+      var bn = $("boardNextRound");
+      bn.hidden = false;
     }
-    // Auto-advance: the round has been scored on the Timer phase; stay here so the
-    // host can roll-on and tap "Next word" to begin the next round.
-    setPhase("timer");
+  }
+
+  // Pulse the moved team's token so the move reads clearly on the board.
+  function animateWinnerToken(teamId) {
+    var ti = teamId;
+    var dots = document.querySelectorAll("#board .token");
+    Array.prototype.forEach.call(dots, function (d) {
+      if (d.textContent === String(ti + 1)) {
+        d.classList.remove("token-moved");
+        // reflow to restart the animation
+        void d.offsetWidth;
+        d.classList.add("token-moved");
+      }
+    });
   }
 
   function nextRound() {
@@ -399,8 +493,8 @@
     ensureAudio();
     prerollCount = PREROLL_FROM;
     $("prerollCount").textContent = prerollCount;
-    refreshPreroll();
-    sound.tick();
+    // Assign the interval handle FIRST so prerollActive() is true when we
+    // refresh the controls — otherwise the countdown box stays hidden (bug 7).
     prerollTimer = setInterval(function () {
       prerollCount -= 1;
       if (prerollCount <= 0) {
@@ -412,6 +506,8 @@
       $("prerollCount").textContent = prerollCount;
       sound.tick();
     }, 1000);
+    refreshPreroll();        // now prerollActive() is true -> count + Cancel become visible
+    sound.tick();
   }
 
   function cancelPreroll() {
@@ -441,6 +537,8 @@
   function endGame() {
     stopPreroll();
     stopTimer();
+    hideRollPrompt();
+    pendingWinnerId = null;
     state = null;
     document.body.classList.remove("body-allplay", "body-single");
     $("game").style.display = "none";
@@ -468,6 +566,8 @@
     $("startGame").addEventListener("click", startGame);
     $("endGame").addEventListener("click", endGame);
     $("nextRound").addEventListener("click", nextRound);
+    $("rollDiceBtn").addEventListener("click", rollDiceForWinner);
+    $("boardNextRound").addEventListener("click", nextRound);
     $("startTimer").addEventListener("click", function () {
       if (timerRunning) stopTimer(); else startTimer();
     });

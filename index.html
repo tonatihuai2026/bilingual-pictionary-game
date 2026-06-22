@@ -101,6 +101,15 @@
       <h2 class="phase-heading">Board &middot; <span lang="es">Tablero</span></h2>
       <p class="hint">Track each team's token. The active phase auto-follows the game flow &mdash; tap a tab anytime to look around.</p>
       <div id="board" class="board" aria-label="Game board"></div>
+
+      <!-- Round resolution on the Board: roll the dice, move the winning token -->
+      <div id="rollCard" class="roll-card" hidden>
+        <p id="rollWinner" class="roll-winner" aria-live="polite"></p>
+        <div id="rollDie" class="roll-die" aria-hidden="true">🎲</div>
+        <button id="rollDiceBtn" type="button" class="roll-dice-btn">🎲 Roll dice &middot; <span lang="es">Tira el dado</span></button>
+        <div id="rollOutcome" class="roll-result" aria-live="polite"></div>
+        <button id="boardNextRound" class="secondary board-next-round" type="button" hidden>Next word &middot; <span lang="es">Siguiente palabra</span></button>
+      </div>
     </div>
 
     <!-- ---- Phase: Secret Word ---- -->
@@ -146,7 +155,7 @@
       <!-- Resolve: who won this round -->
       <div class="resolve-card">
         <h3 id="resolveHeading">Who guessed first? &middot; <span lang="es">¿Quién adivinó primero?</span></h3>
-        <p class="hint" id="resolveHint">Tap the team that guessed it first &mdash; they roll the die and move ahead.</p>
+        <p class="hint" id="resolveHint">Tap the team that guessed it first &mdash; you'll head to the board to roll the die and move their token.</p>
         <div id="resolveButtons" class="resolve-buttons"></div>
         <div id="rollResult" class="roll-result" aria-live="polite"></div>
       </div>
