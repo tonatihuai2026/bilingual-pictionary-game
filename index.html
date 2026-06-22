@@ -121,6 +121,16 @@
           👁️ Hold to reveal &middot; <span lang="es">Mantén para ver</span>
         </button>
         <p class="hint">Both languages count when you guess!</p>
+
+        <!-- Pre-roll: device-handoff countdown that starts the round timer -->
+        <button id="wordStartTimer" class="word-start-timer" type="button">
+          ▶ Start Timer &middot; <span lang="es">Iniciar cronómetro</span>
+        </button>
+        <div id="preroll" class="preroll" hidden aria-live="assertive">
+          <p class="preroll-label">Get ready! &middot; <span lang="es">¡Prepárate!</span></p>
+          <div id="prerollCount" class="preroll-count">5</div>
+          <button id="prerollCancel" class="secondary preroll-cancel" type="button">Cancel &middot; <span lang="es">Cancelar</span></button>
+        </div>
       </div>
     </div>
 

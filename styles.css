@@ -301,6 +301,25 @@ body.body-allplay, body.body-single {
 }
 .reveal-btn.revealing { background: var(--coral-ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--coral) 35%, transparent); }
 
+/* ---- Secret Word pre-roll (device-handoff countdown) ---- */
+.word-start-timer {
+  display: block; width: 100%; margin: 1rem 0 .25rem;
+  background: var(--ds-accent, var(--coral)); font-size: 1.1rem; padding: .85rem 1rem;
+}
+.word-start-timer:hover { background: color-mix(in srgb, var(--ds-accent) 88%, #000); }
+.preroll {
+  margin: 1rem 0 .25rem; padding: 1rem; text-align: center;
+  background: color-mix(in srgb, var(--ds-accent) 10%, var(--ds-surface, #fff));
+  border: 2px solid var(--ds-accent, var(--coral));
+  border-radius: var(--ds-radius, 10px);
+}
+.preroll-label { margin: 0 0 .25rem; font-weight: 600; color: var(--ds-ink); }
+.preroll-count {
+  font-size: 4rem; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums;
+  color: var(--ds-accent, var(--coral)); margin: .25rem 0 .75rem;
+}
+.preroll-cancel { margin: 0 auto; }
+
 @media (max-width: 480px) {
   .setup-row label { min-width: 100%; }
   .setup-row select { width: 100%; flex-basis: 100%; }

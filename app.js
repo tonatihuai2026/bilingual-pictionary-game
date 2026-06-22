@@ -208,6 +208,7 @@
     renderRoundBanner();
     renderResolveButtons();
     renderBoard();
+    cancelPreroll();   // a fresh word: no stale countdown; show the Start Timer button
     // Auto-advance: a fresh word starts on the Secret Word phase so the drawer reveals it.
     setPhase("word");
   }
@@ -290,6 +291,7 @@
 
   function resolve(teamId) {
     if (resolvedThisRound || state.winner !== null) return;
+    stopPreroll();
     stopTimer();
     var res = Turn.resolveGuess(state, teamId, rng);
     sound.roll();
@@ -336,6 +338,7 @@
     if (timerRunning || state.winner !== null) return;
     ensureAudio();
     timerRunning = true;
+    refreshPreroll();    // round timer now running -> hide the Secret Word Start button
     setPhase("timer");   // auto-advance: drawing has begun, show the clock
     $("startTimer").textContent = "Pause";
     timerInterval = setInterval(function () {
@@ -358,11 +361,62 @@
     timerRunning = false;
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
     $("startTimer").textContent = "Start Timer";
+    refreshPreroll();
   }
   function resetTimer() {
     stopTimer();
     timerRemaining = timerTotal;
     paintTimer();
+  }
+
+  // ---- Secret Word pre-roll (device-handoff countdown) --------------------
+  // Shows a "Start Timer" button on the Secret Word view while the round timer
+  // is NOT running. Tapping it runs a 5->0 countdown; on reaching 0 it reuses
+  // the existing startTimer() engine (which auto-navigates to the Timer tab).
+  // Cancel aborts and keeps the player on the Secret Word view.
+  var PREROLL_FROM = 5;
+  var prerollCount = 0, prerollTimer = null;
+
+  function prerollActive() { return prerollTimer !== null; }
+
+  function stopPreroll() {
+    if (prerollTimer) { clearInterval(prerollTimer); prerollTimer = null; }
+  }
+
+  // Reflect timer/pre-roll state on the Secret Word view's controls.
+  function refreshPreroll() {
+    var btn = $("wordStartTimer"), box = $("preroll");
+    if (!btn || !box) return;
+    var running = prerollActive();
+    // The Start button is only for the not-yet-started state.
+    btn.hidden = timerRunning || running;
+    box.hidden = !running;
+  }
+
+  function beginPreroll() {
+    if (timerRunning || prerollActive()) return;
+    if (state && state.winner !== null) return;
+    ensureAudio();
+    prerollCount = PREROLL_FROM;
+    $("prerollCount").textContent = prerollCount;
+    refreshPreroll();
+    sound.tick();
+    prerollTimer = setInterval(function () {
+      prerollCount -= 1;
+      if (prerollCount <= 0) {
+        stopPreroll();
+        refreshPreroll();
+        startTimer();        // reuse existing engine: auto-navigates + starts round timer
+        return;
+      }
+      $("prerollCount").textContent = prerollCount;
+      sound.tick();
+    }, 1000);
+  }
+
+  function cancelPreroll() {
+    stopPreroll();
+    refreshPreroll();        // abort: stay on the Secret Word view, timer not started
   }
 
   // ---- start / end --------------------------------------------------------
@@ -385,6 +439,7 @@
   }
 
   function endGame() {
+    stopPreroll();
     stopTimer();
     state = null;
     document.body.classList.remove("body-allplay", "body-single");
@@ -418,6 +473,10 @@
     });
     $("resetTimer").addEventListener("click", resetTimer);
     $("muteBtn").addEventListener("click", toggleMute);
+
+    // Secret Word pre-roll: Start Timer button -> 5..0 countdown -> reuse startTimer().
+    var wst = $("wordStartTimer"); if (wst) wst.addEventListener("click", beginPreroll);
+    var pc = $("prerollCancel"); if (pc) pc.addEventListener("click", cancelPreroll);
 
     // Phase tabs — manual navigation at any time (timer keeps running across switches).
     ["Board", "Word", "Timer"].forEach(function (cap) {
