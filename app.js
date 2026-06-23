@@ -27,8 +27,9 @@
   var activeCategories = []; // the 5 category KEYS drawn at random for this game
   var round = 1;
   var currentWord = null;
-  var currentWordCat = null; // label of the category the current word came from
+  var currentWordCat = null; // KEY of the category the current word came from
   var currentTile = null;
+  var activeTeamIndex = 0;  // the team "in play": its current tile drives the word category
   var resolvedThisRound = false;
   var phase = "word";      // current phase view: "board" | "word" | "timer"
 
@@ -110,6 +111,40 @@
     return cat.label + (cat.labelEs ? " · " + cat.labelEs : "");
   }
 
+  // A stable color per active category (by its position in the 5-category list),
+  // so a category's tiles, chip, and accents all read as the same color.
+  var CAT_COLORS = ["#e8714f", "#1a6e6e", "#d4a017", "#6a4c93", "#3a7d44"];
+  function categoryColor(catKey) {
+    var i = activeCategories.indexOf(catKey);
+    if (i < 0) return "#5a5f66";
+    return CAT_COLORS[i % CAT_COLORS.length];
+  }
+
+  // Item 13 — make the board tiles use THIS game's 5 selected categories instead
+  // of the frozen lib's complexity-based set. We keep lib/* untouched: makeBoard
+  // still tags tiles, then we overwrite each all-play tile's category here with a
+  // deterministic pick from the 5 active category keys (driven by the seeded rng).
+  function applyActiveCategoriesToBoard() {
+    if (!state || !activeCategories.length) return;
+    state.board.forEach(function (tile) {
+      if (tile.type === "all-play") {
+        tile.category = activeCategories[Math.floor(rng() * activeCategories.length)];
+      }
+    });
+  }
+
+  // The word pool restricted to a single category key (the active team's tile).
+  function wordPoolForCategory(catKey) {
+    var modeObj = MODES[mode];
+    var pool = [];
+    if (modeObj && catKey && modeObj.categories[catKey]) {
+      modeObj.categories[catKey].words.forEach(function (w) {
+        pool.push({ en: w.en, es: w.es, catKey: catKey });
+      });
+    }
+    return pool;
+  }
+
   // Build the draw pool: every word from the game's 5 active categories, tagged
   // with its category. Falls back to the flat WORD_BANK if anything is missing.
   function activeWordPool() {
@@ -129,11 +164,13 @@
     return pool;
   }
 
-  // Draw a fresh word from the active 5-category pool. Honors the seeded rng and
-  // avoids an immediate repeat (bug 10) when alternatives exist.
-  function pickWord() {
-    var pool = activeWordPool();
-    if (!pool.length) return { en: "—", es: "—", catKey: null };
+  // Draw a fresh word. If a category key is given (the active team's current tile),
+  // draw only from that category (item 13); otherwise use the full 5-category pool.
+  // Honors the seeded rng and avoids an immediate repeat (bug 10) when possible.
+  function pickWord(catKey) {
+    var pool = catKey ? wordPoolForCategory(catKey) : activeWordPool();
+    if (!pool.length) pool = activeWordPool();
+    if (!pool.length) return { en: "—", es: "—", catKey: catKey || null };
     var word = pool[Math.floor(rng() * pool.length)];
     if (pool.length > 1 && currentWord && word.en === currentWord.en) {
       var others = pool.filter(function (w) { return w.en !== currentWord.en; });
@@ -160,6 +197,10 @@
       chip.className = "cat-chip";
       chip.textContent = cat ? cat.label : catKey;
       if (cat && cat.labelEs) chip.title = cat.label + " · " + cat.labelEs;
+      // Color the chip to match this category's tiles (item 13 consistency).
+      var color = categoryColor(catKey);
+      chip.style.borderColor = color;
+      chip.style.color = color;
       wrap.appendChild(chip);
     });
   }
@@ -216,7 +257,12 @@
       if (tile.category) {
         var cat = document.createElement("span");
         cat.className = "tile-cat";
-        cat.textContent = tile.category;
+        // Show the human category label (matches the chip list) and color it to
+        // match that category's chip, so tiles + list + word category all agree.
+        var modeObj = MODES[mode];
+        var catObj = modeObj && modeObj.categories[tile.category];
+        cat.textContent = catObj ? catObj.label : tile.category;
+        cat.style.color = categoryColor(tile.category);
         cell.appendChild(cat);
       }
       var tokens = document.createElement("div");
@@ -238,21 +284,24 @@
 
   // ---- round flow ---------------------------------------------------------
   function activeTileForRound() {
-    // Pick the all-play tile that is "in play": the tile just ahead of the
-    // furthest team (purely for word-category flavor). Falls back to a mid tile.
-    var maxPos = state.teams.reduce(function (m, t) { return Math.max(m, t.pos); }, 0);
-    var idx = Math.min(maxPos + 1, state.board.length - 2);
-    if (idx < 1) idx = 1;
-    var tile = state.board[idx];
-    if (tile.type !== "all-play") {
-      tile = state.board.filter(function (t) { return t.type === "all-play"; })[0] || state.board[1];
+    // Item 13 — the round's word comes from the tile the ACTIVE team is currently
+    // standing on (the tile they last landed on). The active team is the one whose
+    // turn drives this round (the last winner, or the round-robin spotlight team).
+    var ti = activeTeamIndex;
+    if (!state.teams[ti]) ti = 0;
+    var pos = state.teams[ti].pos;
+    var tile = state.board[pos];
+    // Start tile (pos 0) carries no category; use the first all-play tile so the
+    // very first round still has a real category.
+    if (!tile || tile.type !== "all-play" || !tile.category) {
+      tile = state.board.filter(function (t) { return t.type === "all-play" && t.category; })[0] || tile;
     }
     return tile;
   }
 
   function newRoundWord() {
     currentTile = activeTileForRound();
-    currentWord = pickWord();          // drawn from the game's 5 active categories
+    currentWord = pickWord(currentTile && currentTile.category); // active team's tile category
     currentWordCat = currentWord.catKey;
     $("wordEn").textContent = currentWord.en;
     $("wordEs").textContent = currentWord.es;
@@ -419,6 +468,9 @@
     state = res.state;
     resolvedThisRound = true;
     pendingWinnerId = null;
+    // The team that just moved becomes the active team: the NEXT round's word
+    // category comes from the tile they now stand on (item 13).
+    activeTeamIndex = teamId;
     var team = state.teams.filter(function (t) { return t.id === teamId; })[0];
     var msg = "🎲 <strong>" + team.name + "</strong> rolled <strong>" + res.roll +
       "</strong> &rarr; tile " + team.pos + ".";
@@ -574,7 +626,11 @@
     timerTotal = parseInt($("timerSeconds").value, 10) || 60;
     var names = getTeamNames();
     state = Turn.initGame(names, BOARD_SIZE, complexity, rng);
+    // Item 13 — replace the lib's complexity-based tile categories with this
+    // game's 5 randomly-selected categories (the same set shown as chips).
+    applyActiveCategoriesToBoard();
     round = 1;
+    activeTeamIndex = 0;
     $("winBanner").style.display = "none";
     $("nextRound").disabled = false;
     $("setup").style.display = "none";

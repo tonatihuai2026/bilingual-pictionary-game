@@ -102,9 +102,10 @@
       <h2 class="phase-heading">Board &middot; <span lang="es">Tablero</span></h2>
       <p class="hint">Track each team's token. The active phase auto-follows the game flow &mdash; tap a tab anytime to look around.</p>
       <div id="activeCategories" class="active-cats" aria-label="Active categories this game"></div>
-      <div id="board" class="board" aria-label="Game board"></div>
 
-      <!-- Round resolution on the Board: roll the dice, move the winning token -->
+      <!-- Round resolution on the Board: roll the dice, move the winning token.
+           Kept ABOVE the board so the "what's next" control is visible without
+           scrolling on a phone (item 12). -->
       <div id="rollCard" class="roll-card" hidden>
         <p id="rollWinner" class="roll-winner" aria-live="polite"></p>
         <div id="rollDie" class="roll-die" aria-hidden="true">🎲</div>
@@ -112,6 +113,8 @@
         <div id="rollOutcome" class="roll-result" aria-live="polite"></div>
         <button id="boardNextRound" class="secondary board-next-round" type="button" hidden>Next word &middot; <span lang="es">Siguiente palabra</span></button>
       </div>
+
+      <div id="board" class="board" aria-label="Game board"></div>
     </div>
 
     <!-- ---- Phase: Secret Word ---- -->
