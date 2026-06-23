@@ -31,7 +31,7 @@
 <body>
 <header>
   <h1>Sketch Fiesta</h1>
-  <p>Free bilingual draw-and-guess <strong>board game</strong> &mdash; race your team to the finish, one device, all play every round.</p>
+  <p>Free bilingual draw-and-guess <strong>board game</strong> &mdash; one device, all play every round.</p>
   <button id="muteBtn" class="mute-btn" type="button" aria-pressed="false" title="Toggle sound">🔊 Sound</button>
 </header>
 <main>
@@ -73,13 +73,8 @@
   <section id="game" style="display:none;">
     <div id="winBanner" class="win-banner" style="display:none;"></div>
 
-    <!-- Whole-screen round-type signal: Single-Team vs All-Play, tinted with team color -->
-    <div id="roundBanner" class="round-banner round-allplay">
-      <span class="round-banner-round">Round <span id="roundNumber">1</span></span>
-      <span class="round-banner-type" id="roundType">All Play!</span>
-      <span class="round-banner-type-es" lang="es" id="roundTypeEs">¡Todos juegan!</span>
-      <span class="round-banner-team" id="roundTeam"></span>
-    </div>
+    <!-- Slim round indicator (every round is all-play; active team color cue) -->
+    <div id="roundBanner" class="round-chip">Round <span id="roundNumber">1</span></div>
 
     <!-- Phase tabs: Board | Secret Word | Timer -->
     <div class="phase-tabs" role="tablist" aria-label="Game phase">
@@ -99,8 +94,9 @@
 
     <!-- ---- Phase: Board ---- -->
     <div class="phase-view" id="phaseBoard" data-phase="board" role="tabpanel" hidden>
-      <h2 class="phase-heading">Board &middot; <span lang="es">Tablero</span></h2>
-      <p class="hint">Track each team's token. The active phase auto-follows the game flow &mdash; tap a tab anytime to look around.</p>
+      <h2 class="phase-heading">Board &middot; <span lang="es">Tablero</span>
+        <button type="button" class="info-btn" aria-label="About the board" data-info="Track each team's token. The active phase auto-follows the game flow — tap a tab anytime to look around.">ⓘ</button>
+      </h2>
       <div id="activeCategories" class="active-cats" aria-label="Active categories this game"></div>
 
       <!-- Round resolution on the Board: roll the dice, move the winning token.
@@ -119,10 +115,11 @@
 
     <!-- ---- Phase: Secret Word ---- -->
     <div class="phase-view" id="phaseWord" data-phase="word" role="tabpanel" hidden>
-      <h2 class="phase-heading">Secret Word &middot; <span lang="es">Palabra secreta</span></h2>
+      <h2 class="phase-heading">Secret Word &middot; <span lang="es">Palabra secreta</span>
+        <button type="button" class="info-btn" aria-label="About the secret word" data-info="Drawer only — take the device privately. Hold to reveal, then draw. Both languages count when you guess! · Solo quien dibuja.">ⓘ</button>
+      </h2>
       <div class="word-card">
         <p class="cat-tag">Category &middot; <span lang="es">Categoría</span>: <span id="wordCat">—</span></p>
-        <p class="hint" id="wordAudience">Drawer only &mdash; take the device privately. &middot; <span lang="es">Solo quien dibuja.</span></p>
         <div class="word-row">
           <span class="lang-label">EN</span>
           <span id="wordEn" class="word">???</span>
@@ -134,7 +131,6 @@
         <button id="revealBtn" class="reveal-btn" type="button" aria-pressed="false">
           👁️ Hold to reveal &middot; <span lang="es">Mantén para ver</span>
         </button>
-        <p class="hint">Both languages count when you guess!</p>
 
         <!-- Pre-roll: device-handoff countdown that starts the round timer -->
         <button id="wordStartTimer" class="word-start-timer" type="button">
@@ -159,8 +155,9 @@
 
       <!-- Resolve: who won this round -->
       <div class="resolve-card">
-        <h3 id="resolveHeading">Who guessed first? &middot; <span lang="es">¿Quién adivinó primero?</span></h3>
-        <p class="hint" id="resolveHint">Tap the team that guessed it first &mdash; you'll head to the board to roll the die and move their token.</p>
+        <h3 id="resolveHeading">Who guessed first? &middot; <span lang="es">¿Quién adivinó primero?</span>
+          <button type="button" class="info-btn" aria-label="About scoring" data-info="Tap the team that guessed it first — you'll head to the board to roll the die and move their token.">ⓘ</button>
+        </h3>
         <div id="resolveButtons" class="resolve-buttons"></div>
         <div id="rollResult" class="roll-result" aria-live="polite"></div>
       </div>

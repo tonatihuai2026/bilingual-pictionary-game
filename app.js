@@ -33,16 +33,9 @@
   var resolvedThisRound = false;
   var phase = "word";      // current phase view: "board" | "word" | "timer"
 
-  // Round-type is NOT modelled in the frozen core (every tile is "all-play").
-  // We DERIVE a Single-Team vs All-Play flag in the UI layer for the whole-screen
-  // signal: alternate by round number (odd = All Play, even = Single Team) and, on
-  // single-team rounds, spotlight the team whose turn it is (round-robin). This is
-  // purely presentational — movement/win/turn logic stays in lib/.
-  function isAllPlayRound() { return (round % 2) === 1; }
-  function spotlightTeamIndex() {
-    if (!state || !state.teams.length) return 0;
-    return (round - 1) % state.teams.length;
-  }
+  // Every round is All-Play: all teams draw & guess; the first to guess rolls the
+  // dice. There is no Single-Team round type (removed item 14). Movement/win/turn
+  // logic stays in lib/; the UI only signals the current round number + active team.
 
   // ---- audio (WebAudio beeps, no external files) --------------------------
   var audioCtx = null, muted = false, tickTimer = null;
@@ -188,8 +181,7 @@
     var modeObj = MODES[mode];
     var head = document.createElement("span");
     head.className = "active-cats-label";
-    head.textContent = (modeObj ? modeObj.label : "Game") +
-      " categories · " + (modeObj ? modeObj.labelEs : "") + " categorías:";
+    head.textContent = "Categorías:";
     wrap.appendChild(head);
     activeCategories.forEach(function (catKey) {
       var cat = modeObj && modeObj.categories[catKey];
@@ -337,34 +329,17 @@
     window.scrollTo(0, 0);
   }
 
-  // ---- round-type whole-screen signal -------------------------------------
+  // ---- round indicator ----------------------------------------------------
+  // Every round is All-Play, so there is no round-type banner. We just keep a
+  // slim round counter and a color cue for the ACTIVE team (whose tile drives
+  // this round's word and who rolls next after guessing).
   function renderRoundBanner() {
-    var banner = $("roundBanner");
-    var allPlay = isAllPlayRound();
-    $("roundNumber").textContent = round;
-    banner.classList.toggle("round-allplay", allPlay);
-    banner.classList.toggle("round-single", !allPlay);
-
-    if (allPlay) {
-      $("roundType").textContent = "All Play!";
-      $("roundTypeEs").textContent = "¡Todos juegan!";
-      $("roundTeam").textContent = "Every team draws & guesses · Todos los equipos";
-      // All-play uses the brand accent across the whole screen.
-      document.body.style.setProperty("--round-color", "var(--ds-accent, #e8714f)");
-      banner.style.removeProperty("background");
-    } else {
-      var ti = spotlightTeamIndex();
-      var color = TOKEN_COLORS[ti % TOKEN_COLORS.length];
-      var name = state.teams[ti] ? state.teams[ti].name : ("Team " + (ti + 1));
-      $("roundType").textContent = "Single Team";
-      $("roundTypeEs").textContent = "Equipo único";
-      $("roundTeam").textContent = name + " draws · " + name + " dibuja";
-      document.body.style.setProperty("--round-color", color);
-      banner.style.background = color;
-    }
-    // Tint the whole screen so the round type is unmistakable at a glance.
-    document.body.classList.toggle("body-allplay", allPlay);
-    document.body.classList.toggle("body-single", !allPlay);
+    var el = $("roundNumber");
+    if (el) el.textContent = round;
+    var ti = activeTeamIndex;
+    if (!state || !state.teams[ti]) ti = 0;
+    var color = TOKEN_COLORS[ti % TOKEN_COLORS.length];
+    document.body.style.setProperty("--round-color", color);
   }
 
   // ---- secret word blur / hold-to-reveal ----------------------------------
@@ -647,7 +622,6 @@
     hideRollPrompt();
     pendingWinnerId = null;
     state = null;
-    document.body.classList.remove("body-allplay", "body-single");
     $("game").style.display = "none";
     $("setup").style.display = "block";
     window.scrollTo(0, 0);
@@ -660,6 +634,34 @@
     btn.setAttribute("aria-pressed", String(muted));
     btn.textContent = muted ? "🔇 Muted" : "🔊 Sound";
     if (!muted) ensureAudio();
+  }
+
+  // ---- info bubbles (declutter) -------------------------------------------
+  // Instructional text that only adds value once lives in data-info on a small
+  // ⓘ button. Tap to toggle a popover; tap elsewhere or the button again closes.
+  function initInfoBubbles() {
+    var openPop = null;
+    function closePop() {
+      if (openPop) { openPop.remove(); openPop = null; }
+    }
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest ? e.target.closest(".info-btn") : null;
+      if (btn) {
+        e.preventDefault();
+        var wasOpenFor = openPop && openPop._owner === btn;
+        closePop();
+        if (wasOpenFor) return;
+        var pop = document.createElement("div");
+        pop.className = "info-pop";
+        pop.setAttribute("role", "tooltip");
+        pop.textContent = btn.getAttribute("data-info") || "";
+        pop._owner = btn;
+        btn.parentNode.insertBefore(pop, btn.nextSibling);
+        openPop = pop;
+        return;
+      }
+      if (openPop && !(e.target.closest && e.target.closest(".info-pop"))) closePop();
+    });
   }
 
   // ---- wire up ------------------------------------------------------------
@@ -684,6 +686,9 @@
     // Secret Word pre-roll: Start Timer button -> 5..0 countdown -> reuse startTimer().
     var wst = $("wordStartTimer"); if (wst) wst.addEventListener("click", beginPreroll);
     var pc = $("prerollCancel"); if (pc) pc.addEventListener("click", cancelPreroll);
+
+    // Info bubbles: ⓘ buttons reveal a one-time instructional tooltip on tap/click.
+    initInfoBubbles();
 
     // Phase tabs — manual navigation at any time (timer keeps running across switches).
     ["Board", "Word", "Timer"].forEach(function (cap) {

@@ -292,29 +292,33 @@ header { position: relative; }
 #nextRound { background: var(--teal); color: #fff; border-color: var(--teal); }
 #endGame { margin-top: 1.25rem; }
 
-/* ---- round-type whole-screen signal ---- */
+/* ---- round indicator (slim chip; active-team color cue) ---- */
 :root { --round-color: var(--ds-accent, #e8714f); }
-/* Tint the whole page background with the active round color (subtle wash). */
-body.body-allplay, body.body-single {
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--round-color) 16%, var(--cream)) 0,
-      var(--cream) 320px),
-    var(--cream);
+.round-chip {
+  display: inline-block; margin-bottom: .75rem;
+  font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: #fff; background: var(--round-color);
+  border-radius: 999px; padding: .25rem .75rem;
+  box-shadow: var(--ds-shadow);
 }
-.round-banner {
-  border-radius: var(--ds-radius); box-shadow: var(--ds-shadow-hover);
-  padding: .85rem 1rem; margin-bottom: 1rem; text-align: center; color: #fff;
-  display: flex; flex-direction: column; gap: .15rem; align-items: center;
-  border: 3px solid color-mix(in srgb, var(--round-color) 60%, #000);
-  background: var(--round-color);
-  animation: pop .3s ease;
+
+/* ---- info bubbles (one-time instructional text) ---- */
+.info-btn {
+  background: transparent; color: var(--teal); border: none; box-shadow: none;
+  min-height: auto; padding: 0 .15rem; margin: 0 0 0 .35rem;
+  font-size: 1rem; line-height: 1; vertical-align: middle; cursor: pointer;
+  opacity: .7;
 }
-.round-banner.round-allplay { background: var(--ds-accent, var(--coral)); border-color: color-mix(in srgb, var(--coral) 55%, #000); }
-.round-banner-round { font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; opacity: .9; }
-.round-banner-type { font-size: 1.5rem; font-weight: 800; line-height: 1.1; }
-.round-banner-type-es { font-size: .95rem; opacity: .92; }
-.round-banner-team { font-size: .85rem; font-weight: 600; opacity: .95; margin-top: .1rem; }
+.info-btn:hover { background: transparent; box-shadow: none; transform: none; opacity: 1; }
+.info-pop {
+  display: block; margin: .4rem 0 .6rem; padding: .6rem .75rem;
+  font-size: .85rem; font-weight: 400; font-style: normal; line-height: 1.4;
+  color: var(--ds-ink); text-transform: none; letter-spacing: normal;
+  background: color-mix(in srgb, var(--teal) 8%, #fff);
+  border: 1px solid color-mix(in srgb, var(--teal) 30%, transparent);
+  border-radius: calc(var(--ds-radius) * .6);
+  animation: pop .2s ease;
+}
 
 /* ---- phase tabs ---- */
 .phase-tabs {
