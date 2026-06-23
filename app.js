@@ -5,6 +5,7 @@
   "use strict";
 
   var Rng = window.GameRng, Core = window.GameCore, Turn = window.GameTurn;
+  var Host = window.GameHost;   // pure hostLines(event, state) mapper (lib/host.js)
   var MODES = window.WORD_MODES || {};
   var BANK = window.WORD_BANK || [];
 
@@ -32,6 +33,7 @@
   var activeTeamIndex = 0;  // the team "in play": its current tile drives the word category
   var resolvedThisRound = false;
   var phase = "word";      // current phase view: "board" | "word" | "timer"
+  var suppressRoundAnnounce = false; // skip the voice-host round line on round 1
 
   // Every round is All-Play: all teams draw & guess; the first to guess rolls the
   // dice. There is no Single-Team round type (removed item 14). Movement/win/turn
@@ -78,6 +80,79 @@
       });
     }
   };
+
+  // ---- Voice Host (free browser TTS) --------------------------------------
+  // Catalyst Gather's voice-assisted-multiplayer wedge: the co-located board
+  // reads the game out loud via the Web Speech API (SpeechSynthesis). The host
+  // is OPT-IN (default OFF, persisted in localStorage) and a thin, feature-
+  // detected adapter — if speech is unavailable it is a silent no-op and NEVER
+  // blocks gameplay. The spoken lines come from the pure lib/host.js mapper, so
+  // we never re-implement game logic and never speak the secret word.
+  var HOST_KEY = "sf_voicehost_on";
+  var hostOn = false;
+  var synth = (typeof window !== "undefined" && window.speechSynthesis) ? window.speechSynthesis : null;
+  var SpeechUtter = (typeof window !== "undefined") ? window.SpeechSynthesisUtterance : null;
+
+  function speechAvailable() { return !!(synth && SpeechUtter); }
+
+  function loadHostPref() {
+    try {
+      var v = window.localStorage ? window.localStorage.getItem(HOST_KEY) : null;
+      hostOn = (v === "1");
+    } catch (e) { hostOn = false; }
+  }
+  function saveHostPref() {
+    try { if (window.localStorage) window.localStorage.setItem(HOST_KEY, hostOn ? "1" : "0"); }
+    catch (e) { /* private mode / disabled storage: ignore, stay in-memory */ }
+  }
+
+  // speak(text): cancel any in-flight utterance, then voice `text` in English.
+  // Respects the host-on toggle; no-ops cleanly when speech is unavailable or
+  // the text is empty (unknown events return "" from hostLines).
+  function speak(text) {
+    if (!hostOn || !speechAvailable()) return;
+    text = (text == null) ? "" : String(text).trim();
+    if (!text) return;
+    try {
+      synth.cancel();                 // host speaks at transitions, not over itself
+      var u = new SpeechUtter(text);
+      u.lang = "en-US";
+      u.rate = 1.0; u.pitch = 1.0; u.volume = 1.0;
+      synth.speak(u);
+    } catch (e) { /* never let a speech error break the game */ }
+  }
+
+  // Convenience: build the line from game state + voice it in one call.
+  function announce(event, hostState) {
+    if (!hostOn || !Host) return;
+    speak(Host.hostLines(event, hostState || {}));
+  }
+
+  function reflectHostBtn() {
+    var btn = $("hostBtn");
+    if (!btn) return;
+    btn.setAttribute("aria-pressed", String(hostOn));
+    btn.textContent = hostOn ? "🎙️ Host: On" : "🎙️ Host: Off";
+    if (!speechAvailable()) {
+      // Keep gameplay intact; just signal the host can't speak here.
+      btn.disabled = true;
+      btn.title = "Voice host not supported in this browser";
+      btn.textContent = "🎙️ Host: n/a";
+    }
+  }
+
+  function toggleHost() {
+    if (!speechAvailable()) return;
+    hostOn = !hostOn;
+    saveHostPref();
+    reflectHostBtn();
+    if (hostOn) {
+      // First speech needs a user gesture (this tap) to satisfy autoplay rules.
+      speak("Voice host on. I'll read the game for you.");
+    } else if (synth) {
+      synth.cancel();
+    }
+  }
 
   // ---- helpers ------------------------------------------------------------
   function $(id) { return document.getElementById(id); }
@@ -307,6 +382,18 @@
     renderResolveButtons();
     renderBoard();
     cancelPreroll();   // a fresh word: no stale countdown; show the Start Timer button
+    // Voice host: announce the round, whose turn, and the CATEGORY (never the
+    // secret word). Skipped on the very first round, where the gameStart welcome
+    // line already played, to avoid talking over it.
+    if (!suppressRoundAnnounce) {
+      var ti = state && state.teams[activeTeamIndex] ? activeTeamIndex : 0;
+      announce("newRound", {
+        round: round,
+        teamName: state && state.teams[ti] ? state.teams[ti].name : null,
+        categoryLabel: currentWordCat ? categoryLabel(currentWordCat) : null
+      });
+    }
+    suppressRoundAnnounce = false;
     // Auto-advance: a fresh word starts on the Secret Word phase so the drawer reveals it.
     setPhase("word");
   }
@@ -383,6 +470,8 @@
     stopPreroll();
     stopTimer();
     pendingWinnerId = teamId;
+    var scorer = state.teams.filter(function (t) { return t.id === teamId; })[0];
+    announce("scored", { teamName: scorer ? scorer.name : null }); // host: guessed first
     renderResolveButtons();     // lock the picker now that a winner is chosen
     // Auto-navigate to the Board tab and present the Roll-dice control there.
     showRollPrompt();
@@ -456,12 +545,15 @@
     renderResolveButtons();
     if (res.won) {
       sound.win();
+      announce("win", { teamName: team.name }); // host: celebrate the winner
       var banner = $("winBanner");
       banner.style.display = "block";
       banner.innerHTML = "🏆 <strong>" + team.name + "</strong> wins! &middot; " +
         "<span lang='es'>¡" + team.name + " gana!</span>";
       $("nextRound").disabled = true;
     } else {
+      // Host: narrate the dice roll + the tile the token landed on (non-winning).
+      announce("roll", { teamName: team.name, roll: res.roll, tile: team.pos });
       // Prompt for the next word right on the Board so the host stays in this flow.
       var bn = $("boardNextRound");
       bn.hidden = false;
@@ -505,6 +597,7 @@
     if (timerRunning || state.winner !== null) return;
     ensureAudio();
     timerRunning = true;
+    announce("timerStart", { seconds: timerTotal }); // host: drawing has begun
     refreshPreroll();    // round timer now running -> hide the Secret Word Start button
     setPhase("timer");   // auto-advance: drawing has begun, show the clock
     $("startTimer").textContent = "Pause";
@@ -515,6 +608,7 @@
         paintTimer();
         stopTimer();
         sound.timesUp();
+        announce("timesUp", {});  // host: pencils down, who guessed it?
         $("startTimer").textContent = "Start Timer";
         // Auto-advance: time's up -> score the round (pick the winner) on this phase.
         setPhase("timer");
@@ -611,6 +705,9 @@
     $("setup").style.display = "none";
     $("game").style.display = "block";
     resetTimer();
+    // Voice host: welcome line on Start (this tap is the gesture autoplay needs).
+    announce("gameStart", { teams: names });
+    suppressRoundAnnounce = true;  // welcome covers round 1; don't talk over it
     newRoundWord();   // sets round banner + auto-advances to the Secret Word phase
     ensureAudio();
     window.scrollTo(0, 0);
@@ -620,6 +717,7 @@
     stopPreroll();
     stopTimer();
     hideRollPrompt();
+    if (synth) synth.cancel();   // silence the voice host when leaving the game
     pendingWinnerId = null;
     state = null;
     $("game").style.display = "none";
@@ -682,6 +780,12 @@
     });
     $("resetTimer").addEventListener("click", resetTimer);
     $("muteBtn").addEventListener("click", toggleMute);
+
+    // Voice Host toggle (opt-in, default OFF, persisted in localStorage).
+    loadHostPref();
+    reflectHostBtn();
+    var hb = $("hostBtn");
+    if (hb) hb.addEventListener("click", toggleHost);
 
     // Secret Word pre-roll: Start Timer button -> 5..0 countdown -> reuse startTimer().
     var wst = $("wordStartTimer"); if (wst) wst.addEventListener("click", beginPreroll);
