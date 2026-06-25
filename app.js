@@ -6,6 +6,7 @@
 
   var Rng = window.GameRng, Core = window.GameCore, Turn = window.GameTurn;
   var Host = window.GameHost;   // pure hostLines(event, state) mapper (lib/host.js)
+  var Voice = window.GameVoiceKeys; // pure voiceKeys(event, state) -> clip keys (lib/voicekeys.js)
   var MODES = window.WORD_MODES || {};
   var BANK = window.WORD_BANK || [];
 
@@ -95,6 +96,59 @@
 
   function speechAvailable() { return !!(synth && SpeechUtter); }
 
+  // Pre-rendered neural Voice Host (Amy / Piper, free): plays bundled .m4a clips
+  // in sequence (keys from lib/voicekeys.js) instead of robotic browser TTS.
+  // Falls back to SpeechSynthesis when a clip is missing or <audio> is
+  // unavailable. The host is "available" if EITHER path can speak.
+  var AudioCtor = (typeof window !== "undefined" && window.Audio) ? window.Audio : null;
+  var clipManifest = null;     // key -> {file, text}, loaded once from voice/manifest.json
+  var clipCache = {};          // key -> preloaded HTMLAudioElement
+  var clipSeqToken = 0;        // bump to cancel an in-flight clip sequence
+  var CLIP_BASE = "voice/";
+
+  function hostAvailable() { return speechAvailable() || !!AudioCtor; }
+  function clipsReady() { return !!(AudioCtor && Voice && clipManifest); }
+
+  function loadClipManifest() {
+    if (clipManifest || typeof fetch !== "function") return;
+    fetch(CLIP_BASE + "manifest.json").then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j) { delete j._note; clipManifest = j; } })
+      .catch(function () { /* stay on the SpeechSynthesis fallback */ });
+  }
+
+  function getClip(key) {
+    if (!clipManifest || !clipManifest[key]) return null;
+    if (!clipCache[key]) {
+      var a = new AudioCtor(CLIP_BASE + clipManifest[key].file);
+      a.preload = "auto";
+      clipCache[key] = a;
+    }
+    return clipCache[key];
+  }
+
+  function cancelClips() { clipSeqToken++; }
+
+  // Play an ordered list of clip keys sequentially; returns true if it could
+  // start. Bails (false) if ANY key has no clip, so the caller falls back to TTS
+  // rather than speaking a partial line.
+  function playClips(keys) {
+    if (!clipsReady() || !keys || !keys.length) return false;
+    for (var i = 0; i < keys.length; i++) { if (!clipManifest[keys[i]]) return false; }
+    if (synth) { try { synth.cancel(); } catch (e) {} } // never overlap the two paths
+    var token = ++clipSeqToken, idx = 0;
+    function step() {
+      if (token !== clipSeqToken || idx >= keys.length) return;
+      var a = getClip(keys[idx++]);
+      if (!a) { step(); return; }
+      try { a.currentTime = 0; } catch (e) {}
+      a.onended = function () { if (token === clipSeqToken) setTimeout(step, 90); };
+      var p = a.play();
+      if (p && p.catch) p.catch(function () { /* autoplay blocked: stop quietly */ });
+    }
+    step();
+    return true;
+  }
+
   function loadHostPref() {
     try {
       var v = window.localStorage ? window.localStorage.getItem(HOST_KEY) : null;
@@ -114,6 +168,7 @@
     text = (text == null) ? "" : String(text).trim();
     if (!text) return;
     try {
+      cancelClips();                  // never let TTS overlap a neural clip sequence
       synth.cancel();                 // host speaks at transitions, not over itself
       var u = new SpeechUtter(text);
       u.lang = "en-US";
@@ -122,10 +177,18 @@
     } catch (e) { /* never let a speech error break the game */ }
   }
 
-  // Convenience: build the line from game state + voice it in one call.
+  // Announce an event: prefer the pre-rendered neural clips (human-like voice the
+  // investor asked for); fall back to browser TTS if clips aren't ready or a key
+  // is missing. Either way the spoken content is the host.js / voiceKeys mapping
+  // — game logic is never re-implemented and the secret word is never voiced.
   function announce(event, hostState) {
-    if (!hostOn || !Host) return;
-    speak(Host.hostLines(event, hostState || {}));
+    if (!hostOn) return;
+    var st = hostState || {};
+    if (Voice && clipsReady()) {
+      var keys = Voice.voiceKeys(event, st);
+      if (keys && keys.length && playClips(keys)) return; // played via neural clips
+    }
+    if (Host) speak(Host.hostLines(event, st));           // fallback: SpeechSynthesis
   }
 
   function reflectHostBtn() {
@@ -133,7 +196,7 @@
     if (!btn) return;
     btn.setAttribute("aria-pressed", String(hostOn));
     btn.textContent = hostOn ? "🎙️ Host: On" : "🎙️ Host: Off";
-    if (!speechAvailable()) {
+    if (!hostAvailable()) {
       // Keep gameplay intact; just signal the host can't speak here.
       btn.disabled = true;
       btn.title = "Voice host not supported in this browser";
@@ -142,15 +205,20 @@
   }
 
   function toggleHost() {
-    if (!speechAvailable()) return;
+    if (!hostAvailable()) return;
     hostOn = !hostOn;
     saveHostPref();
     reflectHostBtn();
     if (hostOn) {
-      // First speech needs a user gesture (this tap) to satisfy autoplay rules.
-      speak("Voice host on. I'll read the game for you.");
-    } else if (synth) {
-      synth.cancel();
+      loadClipManifest();   // warm the neural clips (idempotent)
+      // This tap is the user gesture autoplay needs; a short confirmation primes
+      // audio. Prefer a neural clip, fall back to TTS.
+      if (!(clipsReady() && playClips(["gs.teamsReady"]))) {
+        speak("Voice host on. I'll read the game for you.");
+      }
+    } else {
+      cancelClips();
+      if (synth) synth.cancel();
     }
   }
 
@@ -389,6 +457,7 @@
       var ti = state && state.teams[activeTeamIndex] ? activeTeamIndex : 0;
       announce("newRound", {
         round: round,
+        teamIndex: ti,
         teamName: state && state.teams[ti] ? state.teams[ti].name : null,
         categoryLabel: currentWordCat ? categoryLabel(currentWordCat) : null
       });
@@ -471,7 +540,7 @@
     stopTimer();
     pendingWinnerId = teamId;
     var scorer = state.teams.filter(function (t) { return t.id === teamId; })[0];
-    announce("scored", { teamName: scorer ? scorer.name : null }); // host: guessed first
+    announce("scored", { teamIndex: teamId, teamName: scorer ? scorer.name : null }); // host: guessed first
     renderResolveButtons();     // lock the picker now that a winner is chosen
     // Auto-navigate to the Board tab and present the Roll-dice control there.
     showRollPrompt();
@@ -545,7 +614,7 @@
     renderResolveButtons();
     if (res.won) {
       sound.win();
-      announce("win", { teamName: team.name }); // host: celebrate the winner
+      announce("win", { teamIndex: teamId, teamName: team.name }); // host: celebrate the winner
       var banner = $("winBanner");
       banner.style.display = "block";
       banner.innerHTML = "🏆 <strong>" + team.name + "</strong> wins! &middot; " +
@@ -553,7 +622,7 @@
       $("nextRound").disabled = true;
     } else {
       // Host: narrate the dice roll + the tile the token landed on (non-winning).
-      announce("roll", { teamName: team.name, roll: res.roll, tile: team.pos });
+      announce("roll", { teamIndex: teamId, teamName: team.name, roll: res.roll, tile: team.pos });
       // Prompt for the next word right on the Board so the host stays in this flow.
       var bn = $("boardNextRound");
       bn.hidden = false;
@@ -717,7 +786,7 @@
     stopPreroll();
     stopTimer();
     hideRollPrompt();
-    if (synth) synth.cancel();   // silence the voice host when leaving the game
+    cancelClips(); if (synth) synth.cancel();   // silence the voice host when leaving the game
     pendingWinnerId = null;
     state = null;
     $("game").style.display = "none";
@@ -783,6 +852,7 @@
 
     // Voice Host toggle (opt-in, default OFF, persisted in localStorage).
     loadHostPref();
+    if (hostOn) loadClipManifest();   // warm neural clips if the host was left on
     reflectHostBtn();
     var hb = $("hostBtn");
     if (hb) hb.addEventListener("click", toggleHost);
